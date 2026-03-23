@@ -1,0 +1,83 @@
+#' @keywords internal
+"_PACKAGE"
+
+#' benthicR: Benthic Ecology Analysis Tools
+#'
+#' Provides comprehensive tools for analyzing benthic marine and freshwater
+#' communities, including diversity indices, functional trait analysis, biomass
+#' conversions, and publication-ready visualizations.
+#'
+#' @section Main Functions:
+#'
+#' \strong{Diversity Indices:}
+#' \itemize{
+#'   \item \code{\link{Div}} - Calculate diversity indices (Shannon, Simpson, Richness, Evenness)
+#'   \item \code{\link{BetaDiv}} - Beta diversity analysis with LCBD and SCBD components
+#' }
+#'
+#' \strong{Functional Traits:}
+#' \itemize{
+#'   \item \code{\link{Functional}} - Analyze functional traits with fuzzy coding
+#' }
+#'
+#' \strong{Biomass Conversion:}
+#' \itemize{
+#'   \item \code{\link{ConvertBiomass}} - Convert biomass between units
+#'   \item \code{\link{view_conversion_factors}} - View available conversion factors
+#' }
+#'
+#' \strong{Visualization:}
+#' \itemize{
+#'   \item \code{\link{RadChart}} - Create radar charts
+#'   \item \code{\link{RadChartMulti}} - Multiple radar charts with multiple series
+#'   \item \code{\link{ExploreComm}} - Community composition visualization
+#' }
+#'
+#' \strong{Data Preparation:}
+#' \itemize{
+#'   \item \code{\link{PreData}} - Reshape abundance matrices
+#'   \item \code{\link{NormalTest}} - Test for normality
+#'   \item \code{\link{TransformData}} - Data transformations
+#'   \item \code{\link{FilterRare}} - Filter rare species
+#' }
+#'
+#' \strong{Color Palettes:}
+#' \itemize{
+#'   \item \code{\link{MCol}} - Marine benthic taxa colors
+#'   \item \code{\link{WCol}} - Continental benthic taxa colors
+#'   \item \code{\link{FFCol}} - Feeding functional groups colors
+#'   \item \code{\link{MFCol}} - Mixed functional groups colors
+#' }
+#'
+#' \strong{Maps:}
+#' \itemize{
+#'   \item \code{\link{ShapeMap}} - Plot shapefiles with map elements
+#'   \item \code{\link{get_example_shapefile}} - Get example shapefile path
+#' }
+#'
+#' @section Getting Started:
+#'
+#' To get started with benthicR:
+#' \preformatted{
+#' library(benthicR)
+#'
+#' # Calculate diversity
+#' Div(data, shape = "w", index = "Shannon")
+#'
+#' # Explore community
+#' ExploreComm(data, shape = "w")
+#'
+#' # Convert biomass
+#' ConvertBiomass(data, taxon_col = "Group",
+#'                biomass_cols = 3:5,
+#'                conversion = "WM_to_DM")
+#' }
+#'
+#' @section Author:
+#' Juan Carlos Rubio-Polania
+#'
+#' @section Acknowledgments:
+#' Special thanks to ELROI who lifts me up Milo José, my four-legged coding companion, for moral
+#' support during package development.
+#'
+"_PACKAGE"
