@@ -78,7 +78,7 @@ print(diversity)
 
 # Example 2: Explore community composition
 community <- data.frame(
-  Class = c("Polychaeta", "Bivalvia", "Gastropoda","Echinodermata"),
+  Class = c("Polychaeta", "Bivalvia", "Gastropoda","Ophiuroidea"),
   Species = c("Capitella", "Nucula", "Nassarius", "Amphiura"),
   St1 = c(100, 70, 80, 44),
   St2 = c(80, 73, 85, 66)
@@ -235,6 +235,25 @@ R package version 0.1.0.
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request or open an Issue on GitHub.
+
+## References
+
+- Bache S, Wickham H (2022). *magrittr: A Forward-Pipe Operator for R*. R package version 2.0.3. https://CRAN.R-project.org/package=magrittr
+- Baselga A, Orme D, Villeger S, De Bortoli J, Leprieur F, Logez M, Martinez-Santalla S, Martin-Devasa R, Gomez-Rodriguez C, Crujeiras R (2023). *betapart: Partitioning Beta Diversity into Turnover and Nestedness Components*. R package version 1.6. https://CRAN.R-project.org/package=betapart
+- Chang W (2023). *extrafont: Tools for Using Fonts*. R package version 0.19. https://CRAN.R-project.org/package=extrafont
+- Dray S, et al. (2024). *adespatial: Multivariate Multiscale Spatial Analysis*. R package version 0.3-24. https://CRAN.R-project.org/package=adespatial
+- Dunnington D (2023). *ggspatial: Spatial Data Framework for ggplot2*. R package version 1.1.9. https://CRAN.R-project.org/package=ggspatial
+- Garnier S, Ross N, Rudis R, Camargo AP, Sciaini M, Scherer C (2024). *viridis: Colorblind-Friendly Color Maps for R*. R package version 0.6.5.
+- Guénard G, Legendre P (2022). Hierarchical Clustering with Contiguity Constraint in R. *Journal of Statistical Software*, 103(7), 1-26. https://doi.org/10.18637/jss.v103.i07
+- Kuhn M (2008). Building Predictive Models in R Using the caret Package. *Journal of Statistical Software*, 28(5), 1-26. https://doi.org/10.18637/jss.v028.i05
+- Nakazawa M (2024). *fmsb: Functions for Medical Statistics Book with some Demographic Data*. R package version 0.7.6. https://CRAN.R-project.org/package=fmsb
+- Pebesma E (2018). Simple Features for R: Standardized Support for Spatial Vector Data. *The R Journal*, 10(1), 439-446. https://doi.org/10.32614/RJ-2018-009
+- Pebesma E, Bivand R (2023). *Spatial Data Science: With Applications in R*. Chapman and Hall/CRC. https://doi.org/10.1201/9780429459016
+- Sievert C (2020). *Interactive Web-Based Data Visualization with R, plotly, and shiny*. Chapman and Hall/CRC.
+- Wickham H (2011). testthat: Get Started with Testing. *The R Journal*, 3, 5-10.
+- Wickham H (2016). *ggplot2: Elegant Graphics for Data Analysis*. Springer-Verlag New York.
+- Wickham H, Pedersen T, Seidel D (2025). *scales: Scale Functions for Visualization*. R package version 1.4.0. https://CRAN.R-project.org/package=scales
+
 
 ## See Also
 
