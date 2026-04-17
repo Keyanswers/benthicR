@@ -14,18 +14,22 @@ data frame (default = 0). Useful when the first column(s) contain metadata
 that should be excluded.}
 
 \item{NCols}{Integer. Column number to use as row names (default = 1).
-This column will be converted to row names and then removed from the data.}
+This column will be converted to row names and then removed from the data.
+Special case: If NCols = 0, the function will automatically transpose the
+table, converting original column names into the first column (character)
+and the rest as numeric columns.}
 
 \item{transpose}{Logical. Should the data frame be transposed after processing?
-(default = FALSE). Set to TRUE to switch rows and columns (e.g., convert
-species-in-rows to species-in-columns format).}
+(default = FALSE). Only applies when NCols > 0. Ignored when NCols = 0.}
 }
 \value{
 A data.frame with:
 \itemize{
-\item Row names set from the specified column
+\item Row names set from the specified column (if NCols > 0)
 \item Specified columns removed
-\item Optionally transposed
+\item Optionally transposed (if NCols > 0 and transpose = TRUE)
+\item If NCols = 0: automatically transposed data where original column
+names become the first column (character) and the rest as numeric columns
 }
 }
 \description{
@@ -36,7 +40,7 @@ diversity analysis.
 \details{
 This function streamlines common data preparation tasks:
 
-\strong{Workflow:}
+\strong{Workflow (NCols > 0 - DEFAULT):}
 \enumerate{
 \item Remove first \code{ReCols} columns (if ReCols > 0)
 \item Set row names from column \code{NCols}
@@ -44,16 +48,29 @@ This function streamlines common data preparation tasks:
 \item Transpose if \code{transpose = TRUE}
 }
 
+\strong{Special workflow (NCols = 0):}
+\enumerate{
+\item Remove first \code{ReCols} columns (if ReCols > 0)
+\item Automatically transpose the data frame excluding the first column
+\item Set column names using the first column values (species names)
+\item Add a new first column with the original column names (sample IDs)
+\item Convert the new first column to character
+\item Convert all other columns to numeric
+}
+Note: When NCols = 0, transposition is automatic, the \code{transpose}
+argument is ignored.
+
 \strong{Common use cases:}
 \itemize{
 \item Converting Excel/CSV imports to analysis-ready format
 \item Handling data with multiple ID columns
 \item Switching between wide and long formats
 \item Preparing data for diversity functions
+\item Converting species-in-columns format with proper data types
 }
 }
 \examples{
-# Example 1: Simple case - set row names from column 1
+# Example 1: Simple case - set row names from column 1 (DEFAULT BEHAVIOR)
 data_raw <- data.frame(
   Station = c("St1", "St2", "St3"),
   Capitella = c(45, 12, 3),
@@ -71,7 +88,7 @@ data_raw2 <- data.frame(
 )
 PreData(data_raw2, ReCols = 1, NCols = 1, transpose = TRUE)
 
-# Example 3: Transpose without removing columns
+# Example 3: Transpose without removing columns (ORIGINAL BEHAVIOR)
 data_raw3 <- data.frame(
   Species = c("Capitella", "Owenia", "Nephtys"),
   St1 = c(45, 23, 12),
@@ -79,5 +96,7 @@ data_raw3 <- data.frame(
   St3 = c(3, 45, 23)
 )
 PreData(data_raw3, NCols = 1, transpose = TRUE)
+
+# Example 4: NEW FEATURE - NCols = 0 auto-transposes with column names as first column
 
 }

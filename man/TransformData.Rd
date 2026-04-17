@@ -2,242 +2,313 @@
 % Please edit documentation in R/data_preparation.R
 \name{TransformData}
 \alias{TransformData}
-\title{Transform Data to Achieve Normality}
+\title{Transform Data for Statistics or Multivariate Analysis}
 \usage{
 TransformData(
   DF,
+  shape = "w",
   data_type = "env",
+  version = "l",
   alpha = 0.05,
   min_sd = 0,
-  test = "shapiro"
+  test = "shapiro",
+  trans = "r4",
+  scale = FALSE,
+  rel_type = "total"
 )
 }
 \arguments{
-\item{DF}{A data.frame containing variables to transform. The first column
-should contain sample/station names, remaining columns are numeric variables.}
+\item{DF}{A data.frame containing the data to transform. Must include at least
+one identifier column and one or more numeric columns.}
 
-\item{data_type}{Character. Type of data to determine appropriate transformations:
+\item{shape}{Character. Format of the input data: \code{"w"} (wide) or \code{"l"} (long).
 \itemize{
-\item \code{"env"} - Environmental variables (default): sqrt → log → fourth root → chord → scale
-\item \code{"bio"} - Biological/abundance data: sqrt → fourth root → log → chord → scale
-\item \code{"percent"} - Percentage/proportion data in the range of 0 to 1 or in the range of 0 to 100: arcsine-sqrt only
-\item \code{"pa"} - Presence-absence data: converts to binary (0/1), no normality testing
+\item \code{"w"}: Samples in first column, variables in subsequent columns (default)
+\item \code{"l"}: Variables in first column, samples in subsequent columns
 }}
 
-\item{alpha}{Significance level for normality test (default = 0.05).}
+\item{data_type}{Character. Type of data to transform. Options:
+\itemize{
+\item \code{"env"}: Environmental data - sequential transformations until normality
+\item \code{"bio"}: Biological/abundance data - single transformation
+\item \code{"percent"}: Percentage/proportion data - arcsine-square root
+\item \code{"pa"}: Presence-absence conversion
+\item \code{"scale"}: Z-score standardization only (no transformation)
+}}
 
-\item{min_sd}{Minimum standard deviation threshold. Variables with SD below
-this value are excluded (default = 0, keeps all variables with any variation).}
+\item{version}{Character. Output format: \code{"l"} (long) or \code{"s"} (short).
+\itemize{
+\item \code{"l"}: Returns complete data.frame with first column preserved (default)
+\item \code{"s"}: Returns list with separated transformed/untransformed data and reports
+}}
 
-\item{test}{Normality test to use: "shapiro" (default) or "ks".}
+\item{alpha}{Numeric. Significance level for normality tests (default = 0.05).
+Only used when \code{data_type = "env"}.}
+
+\item{min_sd}{Numeric. Minimum standard deviation threshold. Variables with SD
+<= \code{min_sd} are excluded (default = 0). Only used when \code{data_type = "env"}.}
+
+\item{test}{Character. Normality test to use: \code{"shapiro"} (Shapiro-Wilk) or
+\code{"ks"} (Kolmogorov-Smirnov). Default = \code{"shapiro"}.}
+
+\item{trans}{Character. Transformation for biological data. Options:
+\itemize{
+\item \code{"r4"}: Fourth root (x^0.25) - default
+\item \code{"l1"}: Log(x + 1)
+\item \code{"sq"}: Square root
+\item \code{"Ch"}: Chord transformation
+}}
+
+\item{scale}{Logical. If \code{TRUE}, applies z-score standardization to the
+final data. For \code{data_type = "env"}, scales all variables (normal + non-normal).
+Default = \code{FALSE}.}
+
+\item{rel_type}{Character. Type of relativization when data_type = "rel".
+Options: \code{"total"} (divide by row sum) or \code{"max"} (divide by row maximum).
+Default = \code{"total"}.}
 }
 \value{
-A list with six elements:
+If \code{version = "l"}: A data.frame with the first column preserved and all
+variables (transformed/untransformed). Transformation metadata stored as attributes.
+
+If \code{version = "s"}: A list containing:
 \itemize{
-\item \code{normal_data} - Data frame with all normalized variables (ready
-for parametric analysis)
-\item \code{non_normal_data} - Data frame with variables that could not be
-normalized (use non-parametric methods)
-\item \code{transformation_report} - Detailed report showing which transformation
-was applied to each variable
-\item \code{summary} - Summary statistics: total variables, normalized,
-non-normalized, and method counts
-\item \code{normal_vars} - Character vector of normalized variable names
-\item \code{non_normal_vars} - Character vector of non-normalized variable names
+\item \code{normal_data} / \code{transformed_data}: Transformed variables
+\item \code{non_normal_data}: Untransformed variables (only for \code{"env"})
+\item \code{transformation_report}: Detailed transformation log
+\item \code{summary}: Summary statistics
 }
 }
 \description{
-Applies appropriate transformation methods based on data type (environmental,
-biological, percentage/coverage, or presence-absence) to achieve normality
-for parametric statistical analyses.
+Transforms environmental and biological data to achieve normality.
+Supports multiple data types with automatic or user-specified
+transformations, ideal for preparing data before statistical analyses like
+PCA, RDA, ANOVA.
 }
 \details{
-This function applies data-type-specific transformation workflows to achieve
-normality for parametric statistical analyses.
-
-\strong{Transformation Sequences by Data Type:}
-
-\describe{
-\item{\strong{Environmental ("env"):}}{
-Sequence: Initial test → Square root → Log(x+1) → Fourth root → Chord → Z-score
-
-\if{html}{\out{<div class="sourceCode">}}\preformatted{\\strong\{Rationale:\} Environmental variables (temperature, salinity, nutrients,
-depth, etc.) typically show moderate skewness and benefit from progressive
-transformations. Start with mild (sqrt), progress to moderate (log), then
-aggressive (fourth root), followed by standardization methods.
-
-\\strong\{Typical variables:\} Temperature, salinity, depth, pH, dissolved oxygen,
-nutrients (NO3, PO4), chlorophyll, turbidity, grain size parameters
-}\if{html}{\out{</div>}}
-
+\strong{Environmental data (\code{"env"}):}
+Applies sequential transformations to each variable until normality is achieved
+(p > alpha) or all options are exhausted:
+\enumerate{
+\item No transformation (test original data)
+\item Square root
+\item Log(x + 1)
+\item Fourth root
 }
+Variables that remain non-normal are kept in their original scale.
 
-\item{\strong{Biological/Abundance ("bio"):}}{
-Sequence: Initial test → Square root → Fourth root → Log(x+1) → Chord → Z-score
-
-\if{html}{\out{<div class="sourceCode">}}\preformatted{\\strong\{Rationale:\} Biological abundance data are typically highly right-skewed
-with many zeros and few very abundant species. Fourth root is preferred in
-benthic ecology as it down-weights dominant species while retaining
-community structure better than log transformation.
-
-\\strong\{Typical variables:\} Species abundances, densities (ind/m²), biomass,
-counts per taxonomic group
-
-\\strong\{Note:\} For species matrices intended for beta diversity analysis,
-transformations preserve relative abundances while reducing dominance effects
-}\if{html}{\out{</div>}}
-
-}
-
-\item{\strong{Percentage/Coverage ("percent"):}}{
-Transformation: Arcsine-square root only
-
-\if{html}{\out{<div class="sourceCode">}}\preformatted{\\strong\{Rationale:\} Data bounded between 0-1 (proportions) or 0-100 (percentages)
-have variance that depends on the mean (heteroscedastic). Arcsine-sqrt
-stabilizes variance across the range. This is the classical transformation
-for binomial proportions.
-
-\\strong\{Input format:\} Data must be proportions in the range of 0 to 1 OR percentages between 0 and 100.
-The function automatically detects and converts percentages to proportions.
-
-\\strong\{Typical variables:\} Percent cover, percent organic matter, percent
-sand/silt/clay, survival rates, colonization rates
-
-\\strong\{Modern alternative:\} Logit transformation or beta regression may be
-preferred for modern GLM approaches (Warton & Hui 2011), but arcsine-sqrt
-remains widely used and accepted
-}\if{html}{\out{</div>}}
-
-}
-
-\item{\strong{Presence-Absence ("pa"):}}{
-Transformation: Convert to binary (0/1)
-
-\if{html}{\out{<div class="sourceCode">}}\preformatted{\\strong\{Rationale:\} Reduces data to occurrence only, removing abundance
-information. Useful when: (1) abundance data are unreliable, (2) analyzing
-distributional patterns, (3) calculating presence-based diversity indices
-(Jaccard, Sorensen), (4) reducing effects of sampling effort differences
-
-\\strong\{Output:\} All values > 0 become 1, all values = 0 remain 0.
-No normality testing performed as binary data are not continuous.
-
-\\strong\{Use for:\} Beta diversity (betapart package), incidence-based analyses,
-distribution modeling, occupancy analysis
-}\if{html}{\out{</div>}}
-
-}
-}
-
-\strong{Transformation Methods - Technical Details:}
-
-\describe{
-\item{\strong{Square root:} \eqn{\sqrt{x}}}{
-Stabilizes variance in count data (Poisson), moderate variance-stabilizing
-effect, suitable for low to moderate skewness
-}
-
-\item{\strong{Log(x+1):} \eqn{\log(x + 1)}}{
-Strong variance stabilization, converts multiplicative to additive relationships,
-appropriate for lognormally distributed data, +1 handles zeros
-}
-
-\item{\strong{Fourth root:} \eqn{x^{0.25}}}{
-Intermediate between sqrt and log, preferred in marine ecology for species
-abundance, maintains community structure while reducing dominance
-}
-
-\item{\strong{Arcsine-sqrt:} \eqn{\arcsin(\sqrt{x})}}{
-Variance-stabilizing for binomial proportions, stretches ends between 0 to 1,
-compresses middle, formula: asin(sqrt(x)) where x ∈ (0,1)
-}
-
-\item{\strong{Chord:} \eqn{x_{ij} / \sqrt{\sum x_{ij}^2}}}{
-Normalizes samples to unit length, preserves Euclidean distances,
-compositional standardization
-}
-
-\item{\strong{Z-score:} \eqn{(x - \bar{x}) / \sigma}}{
-Centers to mean=0, scales to sd=1, makes variables comparable,
-does not change distribution shape
-}
-}
-
-\strong{Output Usage:}
+\strong{Biological data (\code{"bio"}):}
+Applies a single transformation to all variables. Common choices:
 \itemize{
-\item \strong{normal_data:} Use for parametric tests (t-test, ANOVA,
-linear regression, PCA, RDA, discriminant analysis)
-\item \strong{non_normal_data:} Use for non-parametric tests (Mann-Whitney,
-Kruskal-Wallis, Spearman, NMDS, PERMANOVA, ANOSIM)
+\item Fourth root: Recommended for count/abundance data
+\item Log(x+1): For highly skewed data with zeros
+\item Chord: For community composition data
 }
+
+\strong{Percentage data (\code{"percent"}):}
+Automatically converts percentages (>1) to proportions (0-1) and applies
+arcsine-square root transformation. Useful for granulometry, cover, or
+relative abundance data.
+
+\strong{Presence-Absence (\code{"pa"}):}
+Converts all values > 0 to 1 and 0 to 0. Useful for community composition
+analyses (Jaccard, Sørensen indices).
+
+\strong{Scale only (\code{"scale"}):}
+Applies z-score standardization without any transformation. Centers data to
+mean = 0 and scales to SD = 1.
+}
+\note{
+When \code{version = "l"}, transformation metadata can be accessed via:
+\code{attr(result, "summary")} and \code{attr(result, "transformation_report")}
 }
 \examples{
-# Example 1: Environmental variables
+
+# Example 1: Environmental data (sequential transformations)
+
+# Create environmental data with modified station codes and variance
+set.seed(123)
 env_data <- data.frame(
-  Station = paste0("St", 1:20),
-  Temperature = rnorm(20, 15, 3),
-  Depth = rexp(20, 0.1),
-  Salinity = rnorm(20, 35, 2),
-  Chlorophyll = rexp(20, 0.5)
+  Sample = c("S01", "S02", "S03", "S04", "S05", "S06", "S07",
+             "M01", "M02", "M03", "M04", "M05",
+             "P01", "P02", "P03", "P04", "P05"),
+  Temperature = rnorm(17, mean = 18, sd = 3.5),
+  Salinity = rnorm(17, mean = 35, sd = 2.8),
+  DO = rnorm(17, mean = 6.5, sd = 1.2)
 )
-result_env <- TransformData(env_data, data_type = "env")
-result_env$transformation_report
 
-# Example 2: Biological abundance data
+# Apply environmental transformations
+env_trans <- TransformData(env_data,
+                           shape = "w",
+                           data_type = "env",
+                           version = "l")
+head(env_trans)
+
+# View transformation summary
+attr(env_trans, "summary")
+attr(env_trans, "transformation_report")
+
+# With scaling and different alpha
+env_scaled <- TransformData(env_data,
+                            data_type = "env",
+                            alpha = 0.01,
+                            min_sd = 0.5,
+                            scale = TRUE)
+
+
+# Example 2: Biological data (single transformation)
+
+# Create biological abundance data with modified species names
+set.seed(456)
 bio_data <- data.frame(
-  Station = paste0("St", 1:20),
-  Capitella = rpois(20, 50),
-  Owenia = rpois(20, 10),
-  Nephtys = rpois(20, 5)
+  Station = c("A1", "A2", "A3", "B1", "B2", "B3", "B4", "B5",
+              "C1", "C2", "C3", "C4", "D1", "D2", "D3", "D4", "D5"),
+  sp1 = round(rlnorm(17, meanlog = 2, sdlog = 1.5)),
+  sp2 = round(rlnorm(17, meanlog = 1.5, sdlog = 1.2)),
+  sp3 = round(rlnorm(17, meanlog = 3, sdlog = 1.8)),
+  sp4 = round(rlnorm(17, meanlog = 2.5, sdlog = 1.3)),
+  sp5 = round(rlnorm(17, meanlog = 1, sdlog = 1.0))
 )
-result_bio <- TransformData(bio_data, data_type = "bio")
 
-# Example 3: Percentage data (0-100)
+# Default: Fourth root transformation
+bio_r4 <- TransformData(bio_data,
+                        shape = "w",
+                        data_type = "bio",
+                        trans = "r4")
+head(bio_r4)
+
+# Log(x+1) transformation
+bio_log <- TransformData(bio_data,
+                         data_type = "bio",
+                         trans = "l1")
+
+# Chord transformation with scaling
+bio_chord <- TransformData(bio_data,
+                           data_type = "bio",
+                           trans = "Ch",
+                           scale = TRUE)
+
+# Square root transformation
+bio_sqrt <- TransformData(bio_data,
+                          data_type = "bio",
+                          trans = "sq")
+
+
+# Example 3: Long  format (species in first column)
+
+# Same data in long format
+bio_long <- data.frame(
+  Species = c("sp1", "sp2", "sp3", "sp4", "sp5"),
+  A1 = c(12, 5, 45, 8, 23),
+  A2 = c(8, 3, 67, 12, 15),
+  B1 = c(34, 18, 23, 6, 42),
+  B2 = c(56, 7, 89, 15, 8),
+  C1 = c(23, 12, 34, 9, 17)
+)
+
+bio_long_trans <- TransformData(bio_long,
+                                shape = "l",
+                                data_type = "bio",
+                                trans = "r4")
+head(bio_long_trans)
+
+#' # Example 4: Percentage/Proportion data
+
+# Create percentage data (granulometry)
+set.seed(789)
 percent_data <- data.frame(
-  Station = paste0("St", 1:20),
-  Organic_Matter = runif(20, 0, 100),
-  Sand = runif(20, 0, 100),
-  Silt = runif(20, 0, 100)
+Site = c("X1", "X2", "X3", "Y1", "Y2", "Y3", "Z1", "Z2"),
+Sand = round(runif(8, 40, 80), 1),
+Silt = round(runif(8, 10, 35), 1),
+Clay = round(runif(8, 5, 25), 1)
 )
-result_percent <- TransformData(percent_data, data_type = "percent")
 
-# Example 4: Proportion data (0-1)
-prop_data <- data.frame(
-  Station = paste0("St", 1:20),
-  Cover_Algae = runif(20, 0, 1),
-  Cover_Coral = runif(20, 0, 1)
-)
-result_prop <- TransformData(prop_data, data_type = "percent")
+# Ensure sum is approximately 100
+percent_data2 <- data.frame(Site = percent_data$Site,
+                            (percent_data[,-1] / rowSums(percent_data[,-1]) * 100))
 
-# Example 5: Convert to presence-absence
-result_pa <- TransformData(bio_data, data_type = "pa")
-head(result_pa$normal_data)  # All values are 0 or 1
+# Apply arcsine-square root transformation
+percent_trans <- TransformData(percent_data2,
+                               shape = "w",
+                               data_type = "percent")
+head(percent_trans)
 
-}
-\references{
-Legendre, P. & Legendre, L. (2012). Numerical Ecology (3rd ed.). Elsevier.
+# With scaling
+percent_scaled <- TransformData(percent_data2,
+                                data_type = "percent",
+                                scale = TRUE)
 
-Clarke, K.R. & Warwick, R.M. (2001). Change in Marine Communities: An Approach
-to Statistical Analysis and Interpretation (2nd ed.). PRIMER-E, Plymouth.
+# Example 5: Relativization (USA bio_data del Ejemplo 2)
+bio_rel <- TransformData(bio_data,    # ← bio_data ya existe
+                         data_type = "rel",
+                         rel_type = "total")
 
-Field, J.G., Clarke, K.R. & Warwick, R.M. (1982). A practical strategy for
-analysing multispecies distribution patterns. Marine Ecology Progress Series,
-8, 37-52. https://doi.org/10.3354/meps008037
+# Example 6: Presence-Absence conversion
 
-Zuur, A.F., Ieno, E.N. & Elphick, C.S. (2010). A protocol for data exploration
-to avoid common statistical problems. Methods in Ecology and Evolution, 1(1), 3-14.
-https://doi.org/10.1111/j.2041-210X.2009.00001.x
+# Convert abundance to presence-absence
+pa_data <- TransformData(bio_data,
+                         data_type = "pa")
+head(pa_data)
 
-Legendre, P. & Gallagher, E.D. (2001). Ecologically meaningful transformations
-for ordination of species data. Oecologia, 129(2), 271-280.
-https://doi.org/10.1007/s004420100716
+# Example 7: Scale only (z-score standardization)
 
-Warton, D.I. & Hui, F.K.C. (2011). The arcsine is asinine: the analysis of
-proportions in ecology. Ecology, 92(1), 3-10. https://doi.org/10.1890/10-0340.1
+# Apply only scaling without transformation
+scaled_only <- TransformData(env_data,
+                             data_type = "scale")
+head(scaled_only)
 
-Sokal, R.R. & Rohlf, F.J. (1995). Biometry: The Principles and Practice of
-Statistics in Biological Research (3rd ed.). W.H. Freeman.
+# Check: mean ~ 0, sd ~ 1
+colMeans(scaled_only[, -1])
+apply(scaled_only[, -1], 2, sd)
+
+# Example 8: Short version output
+
+# Get list output for more detailed access
+env_list <- TransformData(env_data,
+                          data_type = "env",
+                          version = "s")
+
+env_list$summary
+head(env_list$normal_data)
+head(env_list$non_normal_data)
+env_list$normal_vars
+env_list$non_normal_vars
+
+# Example 9: Different normality tests
+
+# Using Kolmogorov-Smirnov test (less conservative)
+env_ks <- TransformData(env_data,
+                        data_type = "env",
+                        test = "ks")
+
+# Compare with Shapiro-Wilk
+env_sw <- TransformData(env_data,
+                        data_type = "env",
+                        test = "shapiro")
+
+# Example 10: Complete workflow
+
+# 1. Transform environmental variables
+env_final <- PreData(TransformData(env_data,
+                                   data_type = "env",
+                                   scale = TRUE), NCols = 1)
+
+# Multivariate analysis
+pca_result <- prcomp(env_final, scale = FALSE)
+plot(pca_result)
+biplot(pca_result)
+
+# 2. Transform biological data
+bio_final <- PreData(TransformData(bio_data,
+                                   data_type = "bio",
+                                   trans = "r4"), NCols = 1)
+
+# Multivariate analysis
+pca_result2 <- prcomp(bio_final, scale = FALSE)
+plot(pca_result2)
+biplot(pca_result2)
+
 }
 \seealso{
-\code{\link{NormalTest}} for testing normality without transformation,
-\code{\link{PreData}} for data format preparation
+\code{\link[vegan]{decostand}} for alternative transformations
 }

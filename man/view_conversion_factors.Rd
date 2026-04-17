@@ -4,46 +4,78 @@
 \alias{view_conversion_factors}
 \title{View Available Conversion Factors}
 \usage{
-view_conversion_factors(conversion = NULL, group_pattern = NULL)
+view_conversion_factors(
+  conversion = NULL,
+  group_pattern = NULL,
+  show_sources = TRUE
+)
 }
 \arguments{
-\item{conversion}{Character. Optionally filter by conversion type:
-"WM_to_DM", "DM_to_AFDM", "WM_to_AFDM", "DM_to_Energy", or "AFDM_to_Energy".
-If NULL, shows all conversions (default = NULL).}
+\item{conversion}{Character. Type of conversion to display. If NULL, shows
+all available conversions for matching groups. Options:
+\itemize{
+\item \code{"WM_to_DM"} - Wet mass to dry mass
+\item \code{"DM_to_AFDM"} - Dry mass to ash-free dry mass
+\item \code{"WM_to_AFDM"} - Wet mass to ash-free dry mass
+\item \code{"DM_to_Energy"} - Dry mass to energy (J/mg DM)
+\item \code{"AFDM_to_Energy"} - AFDM to energy (J/mg AFDM)
+\item \code{"Water_percent"} - Water content as percentage
+\item \code{"Ash_percent"} - Ash content as percentage
+\item \code{"AFDW_percent"} - Ash-free dry weight as percentage
+\item \code{"Carbon_percent"} - Organic carbon as percentage
+\item \code{"WM_to_KCal"} - Wet mass to KCal (inland waters)
+}}
 
-\item{group_pattern}{Character. Optional pattern to filter groups (e.g., "Amphi"
-to see all Amphipoda-related entries). Uses grep pattern matching.}
+\item{group_pattern}{Character. Regular expression pattern to filter
+taxonomic groups. Case-insensitive. If NULL, shows all groups (default = NULL).}
+
+\item{show_sources}{Logical. If TRUE, includes literature source column in
+output (default = TRUE).}
 }
 \value{
-Data frame with available conversion factors.
+Invisibly returns a data frame with the displayed conversion factors.
 }
 \description{
-Displays the complete internal database of biomass conversion factors,
-showing which taxonomic groups have factors available for each conversion type.
+Displays the internal database of biomass conversion factors compiled from
+literature sources. Can filter by conversion type, taxonomic group pattern,
+or both.
 }
 \details{
-This function helps identify the exact group names needed for ConvertBiomass().
-Use it to check spelling and see which conversions are available for your taxa.
+This function provides an interface to explore the internal conversion
+factors database used by \code{\link{ConvertBiomass}}. The database includes
+factors for over 80 taxonomic groups of marine and freshwater benthic
+organisms.
+
+\strong{Search Examples:}
+\itemize{
+\item \code{view_conversion_factors()} - Show all groups and conversions
+\item \code{view_conversion_factors(conversion = "WM_to_DM")} - Only WM→DM factors
+\item \code{view_conversion_factors(group_pattern = "Polych")} - Groups containing "Polych"
+\item \code{view_conversion_factors(conversion = "AFDM_to_Energy", group_pattern = "acea")} - AFDM energy for crustaceans
+}
+
+\strong{Note:} Energy conversions use column names \code{J_per_mgDM} and
+\code{J_per_mgAFDM} internally but can be requested as \code{"DM_to_Energy"}
+and \code{"AFDM_to_Energy"} for clarity.
 }
 \examples{
 \dontrun{
 # View all available factors
 view_conversion_factors()
 
-# View only WM to DM conversions
+# View only wet mass to dry mass conversions
 view_conversion_factors(conversion = "WM_to_DM")
 
-# Search for specific group
-view_conversion_factors(group_pattern = "Amphi")
-
-# Search for all Crustacea
+# Search for all Crustacea groups
 view_conversion_factors(group_pattern = "acea")
 
-# Check what's available for Mollusca
-view_conversion_factors(group_pattern = "alv")
-}
+# Search for Polychaeta energy conversions
+view_conversion_factors(conversion = "AFDM_to_Energy", group_pattern = "Polych")
 
+# Hide source column for cleaner output
+view_conversion_factors(conversion = "WM_to_DM", show_sources = FALSE)
+}
 }
 \seealso{
-\code{\link{ConvertBiomass}} for converting biomass values
+\code{\link{ConvertBiomass}} for applying conversion factors to data.
 }

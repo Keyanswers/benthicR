@@ -21,7 +21,7 @@ ConvertBiomass(
 }}
 
 \item{taxon_col}{Character or numeric. Column name or number containing
-taxonomic group (e.g., "Phylum", "Class", "Order"). Must match column
+taxonomic group (e.g., "Group", "Phylum", "Class"). Must match column
 names in the conversion factors table (default = "Group").}
 
 \item{biomass_cols}{Numeric vector or character vector. Columns containing
@@ -33,8 +33,13 @@ biomass values to convert. Can be column numbers (e.g., 3:5) or names
 \item \code{"WM_to_DM"} - Wet mass to dry mass
 \item \code{"DM_to_AFDM"} - Dry mass to ash-free dry mass
 \item \code{"WM_to_AFDM"} - Wet mass to ash-free dry mass (direct)
-\item \code{"DM_to_Energy"} - Dry mass to energy (J/mg)
-\item \code{"AFDM_to_Energy"} - AFDM to energy (J/mg)
+\item \code{"DM_to_Energy"} - Dry mass to energy (J/mg DM)
+\item \code{"AFDM_to_Energy"} - AFDM to energy (J/mg AFDM)
+\item \code{"Water_percent"} - Water content as percentage
+\item \code{"Ash_percent"} - Ash content as percentage
+\item \code{"AFDW_percent"} - Ash-free dry weight as percentage
+\item \code{"Carbon_percent"} - Organic carbon as percentage
+\item \code{"WM_to_KCal"} - Wet mass to KCal (inland waters)
 }}
 
 \item{factors}{Data frame with conversion factors. If NULL, uses internal
@@ -54,37 +59,69 @@ is maintained, with biomass columns containing converted values.
 }
 \description{
 Converts biomass measurements between different units (e.g., wet mass to dry
-mass, AFDM to energy) using taxon-specific conversion factors. The function
-includes a comprehensive internal database of conversion factors for marine
-benthic taxa compiled from literature.
+mass, AFDM to energy) using taxon-specific conversion factors compiled from
+extensive literature sources. The function includes a comprehensive internal
+database of conversion factors for marine, and freshwater benthic taxa.
 }
 \details{
 \strong{Conversion Types:}
 
 \itemize{
 \item \strong{WM_to_DM:} Wet mass → Dry mass (after drying at 60°C)
-\item \strong{DM_to_AFDM:} Dry mass → Ash-free dry mass (after combustion)
+\item \strong{DM_to_AFDM:} Dry mass → Ash-free dry mass (after combustion at 500°C)
 \item \strong{WM_to_AFDM:} Wet mass → AFDM (combined conversion)
 \item \strong{DM_to_Energy:} Dry mass → Energy content (Joules per mg DM)
 \item \strong{AFDM_to_Energy:} AFDM → Energy content (Joules per mg AFDM)
+\item \strong{Water_percent:} Water content as percentage of wet weight
+\item \strong{Ash_percent:} Ash content as percentage (of WW or DW depending on source)
+\item \strong{AFDW_percent:} Ash-free dry weight as percentage of wet weight
+\item \strong{Carbon_percent:} Organic carbon as percentage of wet weight
+\item \strong{WM_to_KCal:} Wet mass to KCal (for inland waters: fish = 1.0,
+zoobenthos/zooplankton = 0.83)
 }
 
 \strong{Internal Database:}
 
 The function includes conversion factors for major benthic taxa compiled from
 literature sources including:
+
+\strong{Marine Taxa:}
 \itemize{
-\item Echinodermata (Asteroidea, Echinoidea, Ophiuroidea, Holothuroidea, Crinoidea)
-\item Crustacea (Amphipoda, Isopoda, Decapoda, Mysidacea, Cumacea, etc.)
-\item Mollusca (Bivalvia, Gastropoda, Cephalopoda)
-\item Annelida (Polychaeta Errantia, Polychaeta Sedentaria, Oligochaeta)
-\item Other groups (Porifera, Cnidaria, Bryozoa, Nemertea, etc.)
-\item Fish (Demersal, Pelagic, Mesopelagic)
-\item Insect larvae (Chironomidae, Ephemeroptera, Odonata, Trichoptera)
+\item \strong{Porifera:} Sponges
+\item \strong{Cnidaria:} Hydrozoa, Octocorallia, Scleractinia, Actiniaria, Anthozoa
+\item \strong{Nemertea:} Ribbon worms
+\item \strong{Annelida:} Polychaeta (Errantia, Sedentaria), Oligochaeta
+\item \strong{Sipuncula:} Peanut worms
+\item \strong{Mollusca:} Gastropoda, Bivalvia, Cephalopoda, Polyplacophora
+\item \strong{Arthropoda:} Amphipoda, Isopoda, Decapoda, Mysidacea, Cumacea,
+Euphausiacea, Cirripedia
+\item \strong{Echinodermata:} Asteroidea, Echinoidea, Ophiuroidea, Holothuroidea,
+Crinoidea
+\item \strong{Bryozoa:} Moss animals
+\item \strong{Tunicata:} Ascidians
+\item \strong{Pisces:} Demersal, Pelagic, Mesopelagic fishes
 }
 
-For taxa not in the database, the function can use mean values or keep
-original measurements.
+\strong{Freshwater/Inland Taxa:}
+\itemize{
+\item \strong{Insecta Larvae:} Chironomidae, Ephemeroptera, Odonata, Trichoptera
+\item \strong{Fish (inland):} Wet mass to dry mass (0.20), WM to KCal (1.0)
+\item \strong{Zoobenthos/Zooplankton (inland):} WM to DM (0.167), WM to KCal (0.83)
+}
+
+\strong{Principal Literature Sources:}
+\itemize{
+\item Vinogradov (1953) - Elementary chemical composition of marine organisms
+\item Waters (1977) - Secondary production in inland waters
+\item Brey et al. (1988) - Energy content of macrobenthic invertebrates
+\item Brey (2010, 2012) - Aquatic invertebrate respiration and production
+\item Ricciardi & Bourget (1998) - Weight-to-weight conversion factors
+\item Eleftheriou & Basford (1989) - Macrobenthic infauna of North Sea
+\item Rumohr et al. (1987) - Conversion factors for benthos
+\item Lie (1968) - Production studies in Puget Sound
+\item Cummins & Wuycheck (1971) - Caloric equivalents
+\item Benke et al. (1999) - Length-mass relationships for freshwater invertebrates
+}
 
 \strong{Shell-Free Dry Mass (SFDM):}
 
@@ -92,15 +129,19 @@ For molluscs, factors are based on shell-free dry mass. If your data includes
 shells, pre-process to remove shell weight or adjust factors accordingly.
 }
 \note{
-Conversion factors are approximations and can vary with season, location,
+\itemize{
+\item Conversion factors are approximations and can vary with season, location,
 and individual size. For critical applications, consider using taxon-specific
 or site-specific factors.
+\item For inland waters, use Waters (1977) factors: WM_to_DM = 0.20 (fish) or
+0.167 (invertebrates).
+}
 }
 \examples{
 \dontrun{
-# Example 1: Convert wet mass to dry mass
+# Example 1: Convert wet mass to dry mass (marine)
 biomass_data <- data.frame(
-  Group = c("Amphipoda", "Bivalvia", "Polych. Errantia", "Asteroidea"),
+  Group = c("Amphipoda", "Bivalvia", "Polychaeta", "Asteroidea"),
   Species = c("Ampelisca", "Nucula", "Glycera", "Astropecten"),
   St1_WM = c(10.5, 25.3, 15.8, 100.2),
   St2_WM = c(12.3, 28.1, 14.2, 95.7),
@@ -113,24 +154,44 @@ view_conversion_factors(conversion = "WM_to_DM")
 biomass_DM <- ConvertBiomass(
   DF = biomass_data,
   taxon_col = "Group",
-  biomass_cols = 3:5,  # Columns St1_WM, St2_WM, St3_WM
+  biomass_cols = 3:5,
   conversion = "WM_to_DM"
 )
 
 print(biomass_DM)
 
 # Example 2: Convert dry mass to energy content
-# Note: Column names changed from St1_WM to St1_DM after conversion
 colnames(biomass_DM)[3:5] <- c("St1_DM", "St2_DM", "St3_DM")
 
 biomass_energy <- ConvertBiomass(
   DF = biomass_DM,
   taxon_col = "Group",
-  biomass_cols = 3:5,  # Now contains DM values
+  biomass_cols = 3:5,
   conversion = "DM_to_Energy"
 )
 
-# Example 3: Use custom conversion factors
+# Example 3: Inland waters conversion (Waters 1977)
+inland_data <- data.frame(
+  Group = c("Fish Inland", "Zoobenthos Inland", "Zooplankton Inland"),
+  Site1 = c(50.0, 25.5, 10.2),
+  Site2 = c(45.3, 30.1, 12.5)
+)
+
+inland_DM <- ConvertBiomass(
+  DF = inland_data,
+  taxon_col = "Group",
+  biomass_cols = 2:3,
+  conversion = "WM_to_DM"
+)
+
+inland_KCal <- ConvertBiomass(
+  DF = inland_data,
+  taxon_col = "Group",
+  biomass_cols = 2:3,
+  conversion = "WM_to_KCal"
+)
+
+# Example 4: Use custom conversion factors
 my_factors <- data.frame(
   Group = c("Amphipoda", "Bivalvia"),
   WM_to_DM = c(0.22, 0.09),
@@ -145,21 +206,19 @@ biomass_custom <- ConvertBiomass(
   factors = my_factors
 )
 
-# Example 4: Search for available groups
-# Find all Crustacea groups
-view_conversion_factors(group_pattern = "acea")
+# Example 5: Search for available groups
+view_conversion_factors(group_pattern = "acea")      # Crustacea
+view_conversion_factors(group_pattern = "Polych")    # Polychaeta
+view_conversion_factors(group_pattern = "Echino")    # Echinodermata
+view_conversion_factors(conversion = "Water_percent") # Water content
 
-# Find all Polychaeta groups
-view_conversion_factors(group_pattern = "Polych")
-
-# Example 5: Handle missing taxa with mean factor
+# Example 6: Handle missing taxa
 biomass_with_na <- data.frame(
   Group = c("Amphipoda", "UnknownGroup", "Bivalvia"),
   Species = c("Ampelisca", "Mystery", "Nucula"),
   St1 = c(10, 15, 20)
 )
 
-# Use mean factor for unknown groups
 result <- ConvertBiomass(
   DF = biomass_with_na,
   taxon_col = "Group",
@@ -168,16 +227,72 @@ result <- ConvertBiomass(
   na_action = "mean"
 )
 }
-
 }
 \references{
-Brey, T., et al. (1988). Growth and production of Macoma balthica in the
-Wadden Sea. Marine Ecology Progress Series, 45, 119-130.
+Barnes, A.T., Quetin, L.B. & Childress, J.J. (1976). Deep-sea macroplanktonic
+sea cucumbers: suspended sediment feeders captured from deep submergence
+vehicle. Science, 194, 1083-1085.
 
-Ricciardi, A., & Bourget, E. (1998). Weight-to-weight conversion factors
-for marine benthic macroinvertebrates. Marine Ecology Progress Series, 163, 245-251.
+Billett, D.S.M. (1991). Deep-sea holothurians. Oceanography and Marine
+Biology: An Annual Review, 29, 259-317.
+
+Brey, T. (2010). An empirical model for estimating aquatic invertebrate
+respiration. Methods in Ecology and Evolution, 1, 92-101.
+doi: 10.1111/j.2041-210X.2009.00008.x
+
+Brey, T. (2012). A multi-parameter artificial neural network model to
+estimate macrobenthic invertebrate productivity and production. Limnology
+and Oceanography: Methods, 10, 581-589. doi: 10.4319/lom.2012.10.581
+
+Brey, T., Rumohr, H. & Ankar, S. (1988). Energy content of macrobenthic
+invertebrates: general conversion factors from weight to energy. Journal
+of Experimental Marine Biology and Ecology, 117, 271-278.
+doi: 10.1016/0022-0981(88)90062-7
+
+Eleftheriou, A. & Basford, D.J. (1989). The macrobenthic infauna of the
+offshore northern North Sea. Journal of the Marine Biological Association
+of the United Kingdom, 69, 123-143. doi: 10.1017/S0025315400049158
+
+Galeron, J., Sibuet, M., Mahaut, M.-L. & Dinet, A. (2000). Variation in
+structure and biomass of the benthic communities at three contrasting
+sites in the tropical Northeast Atlantic. Marine Ecology Progress Series,
+197, 121-137.
+
+Ricciardi, A. & Bourget, E. (1998). Weight-to-weight conversion factors
+for marine benthic macroinvertebrates. Marine Ecology Progress Series,
+163, 245-251.
+
+Smith, C.R. & Hamilton, S.C. (1983). Epibenthic megafauna of a bathyal
+basin off southern California: patterns of abundance, biomass, and
+dispersion. Deep-Sea Research, 30, 907-928.
+
+Steimle, F.W. & Terranova, R.T. (1985). Energetic equivalents of marine
+organisms from the continental shelf of the temperate Northwest Atlantic.
+Journal of Northwest Atlantic Fisheries Science, 6, 117-124.
+
+Torres, J.J., Belman, B.W. & Childress, J.J. (1979). Oxygen consumption
+rates of midwater fishes as a function of depth of occurrence. Deep-Sea
+Research, 26A, 185-197.
+
+Vinogradov, A.P. (1953). The elementary chemical composition of marine
+organisms. Sears Foundation for Marine Research, Yale University, New Haven.
+
+Wacasey, J.W. & Atkinson, E.G. (1987). Energy values of marine benthic
+invertebrates from the Canadian Arctic. Marine Ecology Progress Series,
+39, 243-250.
+
+Walker, M., Tyler, P.A. & Billett, D.S.M. (1987). Organic and calorific
+content of body tissues of deep-sea elasipodid holothurians in the
+northeast Atlantic Ocean. Marine Biology, 96, 277-282.
+
+Zibrowius, H. (1985). Scleractiniaires bathyaux et abyssaux de
+l'Atlantique nord-oriental: campagnes Biogas (Polygas) et Incal. In:
+Laubier, L. & Monniot, C. (eds.) Peuplements profonds du Golfe de
+Gascogne. IFREMER, Paris, pp. 311-324.
 }
 \seealso{
+\code{\link{view_conversion_factors}} to explore available conversion factors.
+
 \code{\link{Functional}} for functional trait analysis,
 \code{\link{ExploreComm}} for community composition
 }

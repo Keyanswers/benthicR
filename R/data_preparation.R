@@ -1,238 +1,520 @@
-#' Transform Data to Achieve Normality
+#' Prepare Data for Analysis
 #'
-#' Applies appropriate transformation methods based on data type (environmental,
-#' biological, percentage/coverage, or presence-absence) to achieve normality
-#' for parametric statistical analyses.
+#' Prepares community data by removing columns, setting row names, and optionally
+#' transposing the data frame. Useful for cleaning and reformatting data before
+#' diversity analysis.
 #'
-#' @param DF A data.frame containing variables to transform. The first column
-#'   should contain sample/station names, remaining columns are numeric variables.
-#' @param data_type Character. Type of data to determine appropriate transformations:
+#' @param DF A data.frame containing community data.
+#' @param ReCols Integer. Number of columns to remove from the beginning of the
+#'   data frame (default = 0). Useful when the first column(s) contain metadata
+#'   that should be excluded.
+#' @param NCols Integer. Column number to use as row names (default = 1).
+#'   This column will be converted to row names and then removed from the data.
+#'   Special case: If NCols = 0, the function will automatically transpose the
+#'   table, converting original column names into the first column (character)
+#'   and the rest as numeric columns.
+#' @param transpose Logical. Should the data frame be transposed after processing?
+#'   (default = FALSE). Only applies when NCols > 0. Ignored when NCols = 0.
+#'
+#' @return A data.frame with:
 #'   \itemize{
-#'     \item \code{"env"} - Environmental variables (default): sqrt → log → fourth root → chord → scale
-#'     \item \code{"bio"} - Biological/abundance data: sqrt → fourth root → log → chord → scale
-#'     \item \code{"percent"} - Percentage/proportion data in the range of 0 to 1 or in the range of 0 to 100: arcsine-sqrt only
-#'     \item \code{"pa"} - Presence-absence data: converts to binary (0/1), no normality testing
-#'   }
-#' @param alpha Significance level for normality test (default = 0.05).
-#' @param min_sd Minimum standard deviation threshold. Variables with SD below
-#'   this value are excluded (default = 0, keeps all variables with any variation).
-#' @param test Normality test to use: "shapiro" (default) or "ks".
-#'
-#' @return A list with six elements:
-#'   \itemize{
-#'     \item \code{normal_data} - Data frame with all normalized variables (ready
-#'       for parametric analysis)
-#'     \item \code{non_normal_data} - Data frame with variables that could not be
-#'       normalized (use non-parametric methods)
-#'     \item \code{transformation_report} - Detailed report showing which transformation
-#'       was applied to each variable
-#'     \item \code{summary} - Summary statistics: total variables, normalized,
-#'       non-normalized, and method counts
-#'     \item \code{normal_vars} - Character vector of normalized variable names
-#'     \item \code{non_normal_vars} - Character vector of non-normalized variable names
+#'     \item Row names set from the specified column (if NCols > 0)
+#'     \item Specified columns removed
+#'     \item Optionally transposed (if NCols > 0 and transpose = TRUE)
+#'     \item If NCols = 0: automatically transposed data where original column
+#'           names become the first column (character) and the rest as numeric columns
 #'   }
 #'
 #' @details
-#' This function applies data-type-specific transformation workflows to achieve
-#' normality for parametric statistical analyses.
+#' This function streamlines common data preparation tasks:
 #'
-#' \strong{Transformation Sequences by Data Type:}
-#'
-#' \describe{
-#'   \item{\strong{Environmental ("env"):}}{
-#'     Sequence: Initial test → Square root → Log(x+1) → Fourth root → Chord → Z-score
-#'
-#'     \strong{Rationale:} Environmental variables (temperature, salinity, nutrients,
-#'     depth, etc.) typically show moderate skewness and benefit from progressive
-#'     transformations. Start with mild (sqrt), progress to moderate (log), then
-#'     aggressive (fourth root), followed by standardization methods.
-#'
-#'     \strong{Typical variables:} Temperature, salinity, depth, pH, dissolved oxygen,
-#'     nutrients (NO3, PO4), chlorophyll, turbidity, grain size parameters
-#'   }
-#'
-#'   \item{\strong{Biological/Abundance ("bio"):}}{
-#'     Sequence: Initial test → Square root → Fourth root → Log(x+1) → Chord → Z-score
-#'
-#'     \strong{Rationale:} Biological abundance data are typically highly right-skewed
-#'     with many zeros and few very abundant species. Fourth root is preferred in
-#'     benthic ecology as it down-weights dominant species while retaining
-#'     community structure better than log transformation.
-#'
-#'     \strong{Typical variables:} Species abundances, densities (ind/m²), biomass,
-#'     counts per taxonomic group
-#'
-#'     \strong{Note:} For species matrices intended for beta diversity analysis,
-#'     transformations preserve relative abundances while reducing dominance effects
-#'   }
-#'
-#'   \item{\strong{Percentage/Coverage ("percent"):}}{
-#'     Transformation: Arcsine-square root only
-#'
-#'     \strong{Rationale:} Data bounded between 0-1 (proportions) or 0-100 (percentages)
-#'     have variance that depends on the mean (heteroscedastic). Arcsine-sqrt
-#'     stabilizes variance across the range. This is the classical transformation
-#'     for binomial proportions.
-#'
-#'     \strong{Input format:} Data must be proportions in the range of 0 to 1 OR percentages between 0 and 100.
-#'     The function automatically detects and converts percentages to proportions.
-#'
-#'     \strong{Typical variables:} Percent cover, percent organic matter, percent
-#'     sand/silt/clay, survival rates, colonization rates
-#'
-#'     \strong{Modern alternative:} Logit transformation or beta regression may be
-#'     preferred for modern GLM approaches (Warton & Hui 2011), but arcsine-sqrt
-#'     remains widely used and accepted
-#'   }
-#'
-#'   \item{\strong{Presence-Absence ("pa"):}}{
-#'     Transformation: Convert to binary (0/1)
-#'
-#'     \strong{Rationale:} Reduces data to occurrence only, removing abundance
-#'     information. Useful when: (1) abundance data are unreliable, (2) analyzing
-#'     distributional patterns, (3) calculating presence-based diversity indices
-#'     (Jaccard, Sorensen), (4) reducing effects of sampling effort differences
-#'
-#'     \strong{Output:} All values > 0 become 1, all values = 0 remain 0.
-#'     No normality testing performed as binary data are not continuous.
-#'
-#'     \strong{Use for:} Beta diversity (betapart package), incidence-based analyses,
-#'     distribution modeling, occupancy analysis
-#'   }
+#' \strong{Workflow (NCols > 0 - DEFAULT):}
+#' \enumerate{
+#'   \item Remove first \code{ReCols} columns (if ReCols > 0)
+#'   \item Set row names from column \code{NCols}
+#'   \item Remove the names column
+#'   \item Transpose if \code{transpose = TRUE}
 #' }
 #'
-#' \strong{Transformation Methods - Technical Details:}
-#'
-#' \describe{
-#'   \item{\strong{Square root:} \eqn{\sqrt{x}}}{
-#'     Stabilizes variance in count data (Poisson), moderate variance-stabilizing
-#'     effect, suitable for low to moderate skewness
-#'   }
-#'
-#'   \item{\strong{Log(x+1):} \eqn{\log(x + 1)}}{
-#'     Strong variance stabilization, converts multiplicative to additive relationships,
-#'     appropriate for lognormally distributed data, +1 handles zeros
-#'   }
-#'
-#'   \item{\strong{Fourth root:} \eqn{x^{0.25}}}{
-#'     Intermediate between sqrt and log, preferred in marine ecology for species
-#'     abundance, maintains community structure while reducing dominance
-#'   }
-#'
-#'   \item{\strong{Arcsine-sqrt:} \eqn{\arcsin(\sqrt{x})}}{
-#'     Variance-stabilizing for binomial proportions, stretches ends between 0 to 1,
-#'     compresses middle, formula: asin(sqrt(x)) where x ∈ (0,1)
-#'   }
-#'
-#'   \item{\strong{Chord:} \eqn{x_{ij} / \sqrt{\sum x_{ij}^2}}}{
-#'     Normalizes samples to unit length, preserves Euclidean distances,
-#'     compositional standardization
-#'   }
-#'
-#'   \item{\strong{Z-score:} \eqn{(x - \bar{x}) / \sigma}}{
-#'     Centers to mean=0, scales to sd=1, makes variables comparable,
-#'     does not change distribution shape
-#'   }
+#' \strong{Special workflow (NCols = 0):}
+#' \enumerate{
+#'   \item Remove first \code{ReCols} columns (if ReCols > 0)
+#'   \item Automatically transpose the data frame excluding the first column
+#'   \item Set column names using the first column values (species names)
+#'   \item Add a new first column with the original column names (sample IDs)
+#'   \item Convert the new first column to character
+#'   \item Convert all other columns to numeric
 #' }
+#' Note: When NCols = 0, transposition is automatic, the \code{transpose}
+#' argument is ignored.
 #'
-#' \strong{Output Usage:}
+#' \strong{Common use cases:}
 #' \itemize{
-#'   \item \strong{normal_data:} Use for parametric tests (t-test, ANOVA,
-#'     linear regression, PCA, RDA, discriminant analysis)
-#'   \item \strong{non_normal_data:} Use for non-parametric tests (Mann-Whitney,
-#'     Kruskal-Wallis, Spearman, NMDS, PERMANOVA, ANOSIM)
+#'   \item Converting Excel/CSV imports to analysis-ready format
+#'   \item Handling data with multiple ID columns
+#'   \item Switching between wide and long formats
+#'   \item Preparing data for diversity functions
+#'   \item Converting species-in-columns format with proper data types
 #' }
 #'
 #' @examples
-#' # Example 1: Environmental variables
-#' env_data <- data.frame(
-#'   Station = paste0("St", 1:20),
-#'   Temperature = rnorm(20, 15, 3),
-#'   Depth = rexp(20, 0.1),
-#'   Salinity = rnorm(20, 35, 2),
-#'   Chlorophyll = rexp(20, 0.5)
+#' # Example 1: Simple case - set row names from column 1 (DEFAULT BEHAVIOR)
+#' data_raw <- data.frame(
+#'   Station = c("St1", "St2", "St3"),
+#'   Capitella = c(45, 12, 3),
+#'   Owenia = c(23, 18, 45),
+#'   Nephtys = c(12, 34, 23)
 #' )
-#' result_env <- TransformData(env_data, data_type = "env")
-#' result_env$transformation_report
+#' PreData(data_raw, NCols = 1, transpose = FALSE)
 #'
-#' # Example 2: Biological abundance data
-#' bio_data <- data.frame(
-#'   Station = paste0("St", 1:20),
-#'   Capitella = rpois(20, 50),
-#'   Owenia = rpois(20, 10),
-#'   Nephtys = rpois(20, 5)
+#' # Example 2: Remove first column, use second as names, and transpose
+#' data_raw2 <- data.frame(
+#'   ID = 1:3,
+#'   Station = c("St1", "St2", "St3"),
+#'   Capitella = c(45, 12, 3),
+#'   Owenia = c(23, 18, 45)
 #' )
-#' result_bio <- TransformData(bio_data, data_type = "bio")
+#' PreData(data_raw2, ReCols = 1, NCols = 1, transpose = TRUE)
 #'
-#' # Example 3: Percentage data (0-100)
-#' percent_data <- data.frame(
-#'   Station = paste0("St", 1:20),
-#'   Organic_Matter = runif(20, 0, 100),
-#'   Sand = runif(20, 0, 100),
-#'   Silt = runif(20, 0, 100)
+#' # Example 3: Transpose without removing columns (ORIGINAL BEHAVIOR)
+#' data_raw3 <- data.frame(
+#'   Species = c("Capitella", "Owenia", "Nephtys"),
+#'   St1 = c(45, 23, 12),
+#'   St2 = c(12, 18, 34),
+#'   St3 = c(3, 45, 23)
 #' )
-#' result_percent <- TransformData(percent_data, data_type = "percent")
+#' PreData(data_raw3, NCols = 1, transpose = TRUE)
 #'
-#' # Example 4: Proportion data (0-1)
-#' prop_data <- data.frame(
-#'   Station = paste0("St", 1:20),
-#'   Cover_Algae = runif(20, 0, 1),
-#'   Cover_Coral = runif(20, 0, 1)
-#' )
-#' result_prop <- TransformData(prop_data, data_type = "percent")
-#'
-#' # Example 5: Convert to presence-absence
-#' result_pa <- TransformData(bio_data, data_type = "pa")
-#' head(result_pa$normal_data)  # All values are 0 or 1
-#'
-#' @references
-#' Legendre, P. & Legendre, L. (2012). Numerical Ecology (3rd ed.). Elsevier.
-#'
-#' Clarke, K.R. & Warwick, R.M. (2001). Change in Marine Communities: An Approach
-#' to Statistical Analysis and Interpretation (2nd ed.). PRIMER-E, Plymouth.
-#'
-#' Field, J.G., Clarke, K.R. & Warwick, R.M. (1982). A practical strategy for
-#' analysing multispecies distribution patterns. Marine Ecology Progress Series,
-#' 8, 37-52. https://doi.org/10.3354/meps008037
-#'
-#' Zuur, A.F., Ieno, E.N. & Elphick, C.S. (2010). A protocol for data exploration
-#' to avoid common statistical problems. Methods in Ecology and Evolution, 1(1), 3-14.
-#' https://doi.org/10.1111/j.2041-210X.2009.00001.x
-#'
-#' Legendre, P. & Gallagher, E.D. (2001). Ecologically meaningful transformations
-#' for ordination of species data. Oecologia, 129(2), 271-280.
-#' https://doi.org/10.1007/s004420100716
-#'
-#' Warton, D.I. & Hui, F.K.C. (2011). The arcsine is asinine: the analysis of
-#' proportions in ecology. Ecology, 92(1), 3-10. https://doi.org/10.1890/10-0340.1
-#'
-#' Sokal, R.R. & Rohlf, F.J. (1995). Biometry: The Principles and Practice of
-#' Statistics in Biological Research (3rd ed.). W.H. Freeman.
-#'
-#' @seealso \code{\link{NormalTest}} for testing normality without transformation,
-#'   \code{\link{PreData}} for data format preparation
+#' # Example 4: NEW FEATURE - NCols = 0 auto-transposes with column names as first column
 #'
 #' @importFrom stats shapiro.test ks.test sd
 #' @export
-TransformData <- function(DF, data_type = "env", alpha = 0.05, min_sd = 0, test = "shapiro") {
+PreData <- function(DF, ReCols = 0, NCols = 1, transpose = FALSE) {
 
   # Input validation
   if (!is.data.frame(DF)) {
     stop("DF must be a data.frame")
   }
 
-  if (!data_type %in% c("env", "bio", "percent", "pa")) {
-    stop("data_type must be 'env', 'bio', 'percent', or 'pa'")
+  # NEW FEATURE: Special case - NCols = 0
+  # Logic equivalent to:
+  # b = data.frame(t(Bio[,-1]))
+  # colnames(b) = Bio$Species
+  # b$var = rownames(b)
+  # b = b[,c(dim(b)[2],1:dim(b)[2]-1)]
+  if (NCols == 0) {
+    # Remove initial columns if specified
+    if (ReCols > 0) {
+      if (ReCols >= ncol(DF)) {
+        stop("ReCols must be less than the number of columns")
+      }
+      DF <- DF[, -(1:ReCols), drop = FALSE]
+    }
+
+    # Step 1: Transpose the data excluding the first column
+    DF_transposed <- as.data.frame(t(DF[, -1, drop = FALSE]), stringsAsFactors = FALSE)
+
+    # Step 2: Set column names using the first column of original data
+    colnames(DF_transposed) <- DF[, 1]
+
+    # Step 3: Add a new column with the original column names (sample IDs)
+    DF_transposed$var <- rownames(DF_transposed)
+
+    # Step 4: Reorder columns to put 'var' as the first column
+    DF_transposed <- DF_transposed[, c(dim(DF_transposed)[2], 1:(dim(DF_transposed)[2] - 1))]
+
+    # Step 5: Convert 'var' column to character
+    DF_transposed[, 1] <- as.character(DF_transposed[, 1])
+
+    # Step 6: Convert all other columns to numeric
+    if (ncol(DF_transposed) > 1) {
+      for (i in 2:ncol(DF_transposed)) {
+        DF_transposed[, i] <- as.numeric(as.character(DF_transposed[, i]))
+      }
+    }
+
+    return(DF_transposed)
+  }
+
+  # ORIGINAL BEHAVIOR: Normal case - NCols > 0 (DEFAULT)
+  if (!is.numeric(ReCols) || ReCols < 0 || ReCols >= ncol(DF)) {
+    stop("ReCols must be a non-negative integer less than the number of columns")
+  }
+
+  if (!is.numeric(NCols) || NCols < 1 || NCols > ncol(DF)) {
+    stop("NCols must be a positive integer within the number of columns")
+  }
+
+  if (!is.logical(transpose)) {
+    stop("transpose must be TRUE or FALSE")
+  }
+
+  # Remove initial columns if specified
+  if (ReCols > 0) {
+    DF <- DF[, -(1:ReCols), drop = FALSE]
+  }
+
+  # Set row names from specified column
+  rownames(DF) <- DF[, NCols]
+
+  # Remove the names column
+  DF <- DF[, -NCols, drop = FALSE]
+
+  # Transpose if requested
+  if (transpose) {
+    DF <- as.data.frame(t(DF))
+  }
+
+  return(DF)
+}
+
+#' Transform Data for Statistics or Multivariate Analysis
+#'
+#' @description
+#' Transforms environmental and biological data to achieve normality.
+#' Supports multiple data types with automatic or user-specified
+#' transformations, ideal for preparing data before statistical analyses like
+#' PCA, RDA, ANOVA.
+#'
+#' @param DF A data.frame containing the data to transform. Must include at least
+#'   one identifier column and one or more numeric columns.
+#' @param shape Character. Format of the input data: \code{"w"} (wide) or \code{"l"} (long).
+#'   \itemize{
+#'     \item \code{"w"}: Samples in first column, variables in subsequent columns (default)
+#'     \item \code{"l"}: Variables in first column, samples in subsequent columns
+#'   }
+#' @param data_type Character. Type of data to transform. Options:
+#'   \itemize{
+#'     \item \code{"env"}: Environmental data - sequential transformations until normality
+#'     \item \code{"bio"}: Biological/abundance data - single transformation
+#'     \item \code{"percent"}: Percentage/proportion data - arcsine-square root
+#'     \item \code{"pa"}: Presence-absence conversion
+#'     \item \code{"scale"}: Z-score standardization only (no transformation)
+#'   }
+#'
+#' @param version Character. Output format: \code{"l"} (long) or \code{"s"} (short).
+#'   \itemize{
+#'     \item \code{"l"}: Returns complete data.frame with first column preserved (default)
+#'     \item \code{"s"}: Returns list with separated transformed/untransformed data and reports
+#'   }
+#' @param alpha Numeric. Significance level for normality tests (default = 0.05).
+#'   Only used when \code{data_type = "env"}.
+#' @param min_sd Numeric. Minimum standard deviation threshold. Variables with SD
+#'   <= \code{min_sd} are excluded (default = 0). Only used when \code{data_type = "env"}.
+#' @param test Character. Normality test to use: \code{"shapiro"} (Shapiro-Wilk) or
+#'   \code{"ks"} (Kolmogorov-Smirnov). Default = \code{"shapiro"}.
+#' @param trans Character. Transformation for biological data. Options:
+#'   \itemize{
+#'     \item \code{"r4"}: Fourth root (x^0.25) - default
+#'     \item \code{"l1"}: Log(x + 1)
+#'     \item \code{"sq"}: Square root
+#'     \item \code{"Ch"}: Chord transformation
+#'   }
+#' @param scale Logical. If \code{TRUE}, applies z-score standardization to the
+#'   final data. For \code{data_type = "env"}, scales all variables (normal + non-normal).
+#'   Default = \code{FALSE}.
+#'
+#' @param rel_type Character. Type of relativization when data_type = "rel".
+#'   Options: \code{"total"} (divide by row sum) or \code{"max"} (divide by row maximum).
+#'   Default = \code{"total"}.
+#'
+#' @return
+#' If \code{version = "l"}: A data.frame with the first column preserved and all
+#' variables (transformed/untransformed). Transformation metadata stored as attributes.
+#'
+#' If \code{version = "s"}: A list containing:
+#'   \itemize{
+#'     \item \code{normal_data} / \code{transformed_data}: Transformed variables
+#'     \item \code{non_normal_data}: Untransformed variables (only for \code{"env"})
+#'     \item \code{transformation_report}: Detailed transformation log
+#'     \item \code{summary}: Summary statistics
+#'   }
+#'
+#' @details
+#' \strong{Environmental data (\code{"env"}):}
+#' Applies sequential transformations to each variable until normality is achieved
+#' (p > alpha) or all options are exhausted:
+#' \enumerate{
+#'   \item No transformation (test original data)
+#'   \item Square root
+#'   \item Log(x + 1)
+#'   \item Fourth root
+#' }
+#' Variables that remain non-normal are kept in their original scale.
+#'
+#' \strong{Biological data (\code{"bio"}):}
+#' Applies a single transformation to all variables. Common choices:
+#' \itemize{
+#'   \item Fourth root: Recommended for count/abundance data
+#'   \item Log(x+1): For highly skewed data with zeros
+#'   \item Chord: For community composition data
+#' }
+#'
+#' \strong{Percentage data (\code{"percent"}):}
+#' Automatically converts percentages (>1) to proportions (0-1) and applies
+#' arcsine-square root transformation. Useful for granulometry, cover, or
+#' relative abundance data.
+#'
+#' \strong{Presence-Absence (\code{"pa"}):}
+#' Converts all values > 0 to 1 and 0 to 0. Useful for community composition
+#' analyses (Jaccard, Sørensen indices).
+#'
+#' \strong{Scale only (\code{"scale"}):}
+#' Applies z-score standardization without any transformation. Centers data to
+#' mean = 0 and scales to SD = 1.
+#'
+#' @note
+#' When \code{version = "l"}, transformation metadata can be accessed via:
+#' \code{attr(result, "summary")} and \code{attr(result, "transformation_report")}
+#'
+#' @seealso
+#' \code{\link[vegan]{decostand}} for alternative transformations
+#'
+#' @examples
+#'
+#' # Example 1: Environmental data (sequential transformations)
+#'
+#' # Create environmental data with modified station codes and variance
+#' set.seed(123)
+#' env_data <- data.frame(
+#'   Sample = c("S01", "S02", "S03", "S04", "S05", "S06", "S07",
+#'              "M01", "M02", "M03", "M04", "M05",
+#'              "P01", "P02", "P03", "P04", "P05"),
+#'   Temperature = rnorm(17, mean = 18, sd = 3.5),
+#'   Salinity = rnorm(17, mean = 35, sd = 2.8),
+#'   DO = rnorm(17, mean = 6.5, sd = 1.2)
+#' )
+#'
+#' # Apply environmental transformations
+#' env_trans <- TransformData(env_data,
+#'                            shape = "w",
+#'                            data_type = "env",
+#'                            version = "l")
+#' head(env_trans)
+#'
+#' # View transformation summary
+#' attr(env_trans, "summary")
+#' attr(env_trans, "transformation_report")
+#'
+#' # With scaling and different alpha
+#' env_scaled <- TransformData(env_data,
+#'                             data_type = "env",
+#'                             alpha = 0.01,
+#'                             min_sd = 0.5,
+#'                             scale = TRUE)
+#'
+#'
+#' # Example 2: Biological data (single transformation)
+#'
+#' # Create biological abundance data with modified species names
+#' set.seed(456)
+#' bio_data <- data.frame(
+#'   Station = c("A1", "A2", "A3", "B1", "B2", "B3", "B4", "B5",
+#'               "C1", "C2", "C3", "C4", "D1", "D2", "D3", "D4", "D5"),
+#'   sp1 = round(rlnorm(17, meanlog = 2, sdlog = 1.5)),
+#'   sp2 = round(rlnorm(17, meanlog = 1.5, sdlog = 1.2)),
+#'   sp3 = round(rlnorm(17, meanlog = 3, sdlog = 1.8)),
+#'   sp4 = round(rlnorm(17, meanlog = 2.5, sdlog = 1.3)),
+#'   sp5 = round(rlnorm(17, meanlog = 1, sdlog = 1.0))
+#' )
+#'
+#' # Default: Fourth root transformation
+#' bio_r4 <- TransformData(bio_data,
+#'                         shape = "w",
+#'                         data_type = "bio",
+#'                         trans = "r4")
+#' head(bio_r4)
+#'
+#' # Log(x+1) transformation
+#' bio_log <- TransformData(bio_data,
+#'                          data_type = "bio",
+#'                          trans = "l1")
+#'
+#' # Chord transformation with scaling
+#' bio_chord <- TransformData(bio_data,
+#'                            data_type = "bio",
+#'                            trans = "Ch",
+#'                            scale = TRUE)
+#'
+#' # Square root transformation
+#' bio_sqrt <- TransformData(bio_data,
+#'                           data_type = "bio",
+#'                           trans = "sq")
+#'
+#'
+#' # Example 3: Long  format (species in first column)
+#'
+#' # Same data in long format
+#' bio_long <- data.frame(
+#'   Species = c("sp1", "sp2", "sp3", "sp4", "sp5"),
+#'   A1 = c(12, 5, 45, 8, 23),
+#'   A2 = c(8, 3, 67, 12, 15),
+#'   B1 = c(34, 18, 23, 6, 42),
+#'   B2 = c(56, 7, 89, 15, 8),
+#'   C1 = c(23, 12, 34, 9, 17)
+#' )
+#'
+#' bio_long_trans <- TransformData(bio_long,
+#'                                 shape = "l",
+#'                                 data_type = "bio",
+#'                                 trans = "r4")
+#' head(bio_long_trans)
+#'
+#' #' # Example 4: Percentage/Proportion data
+#'
+#' # Create percentage data (granulometry)
+#' set.seed(789)
+#' percent_data <- data.frame(
+#' Site = c("X1", "X2", "X3", "Y1", "Y2", "Y3", "Z1", "Z2"),
+#' Sand = round(runif(8, 40, 80), 1),
+#' Silt = round(runif(8, 10, 35), 1),
+#' Clay = round(runif(8, 5, 25), 1)
+#' )
+#'
+#' # Ensure sum is approximately 100
+#' percent_data2 <- data.frame(Site = percent_data$Site,
+#'                             (percent_data[,-1] / rowSums(percent_data[,-1]) * 100))
+#'
+#' # Apply arcsine-square root transformation
+#' percent_trans <- TransformData(percent_data2,
+#'                                shape = "w",
+#'                                data_type = "percent")
+#' head(percent_trans)
+#'
+#' # With scaling
+#' percent_scaled <- TransformData(percent_data2,
+#'                                 data_type = "percent",
+#'                                 scale = TRUE)
+#'
+#' # Example 5: Relativization (USA bio_data del Ejemplo 2)
+#' bio_rel <- TransformData(bio_data,    # ← bio_data ya existe
+#'                          data_type = "rel",
+#'                          rel_type = "total")
+#'
+#' # Example 6: Presence-Absence conversion
+#'
+#' # Convert abundance to presence-absence
+#' pa_data <- TransformData(bio_data,
+#'                          data_type = "pa")
+#' head(pa_data)
+#'
+#' # Example 7: Scale only (z-score standardization)
+#'
+#' # Apply only scaling without transformation
+#' scaled_only <- TransformData(env_data,
+#'                              data_type = "scale")
+#' head(scaled_only)
+#'
+#' # Check: mean ~ 0, sd ~ 1
+#' colMeans(scaled_only[, -1])
+#' apply(scaled_only[, -1], 2, sd)
+#'
+#' # Example 8: Short version output
+#'
+#' # Get list output for more detailed access
+#' env_list <- TransformData(env_data,
+#'                           data_type = "env",
+#'                           version = "s")
+#'
+#' env_list$summary
+#' head(env_list$normal_data)
+#' head(env_list$non_normal_data)
+#' env_list$normal_vars
+#' env_list$non_normal_vars
+#'
+#' # Example 9: Different normality tests
+#'
+#' # Using Kolmogorov-Smirnov test (less conservative)
+#' env_ks <- TransformData(env_data,
+#'                         data_type = "env",
+#'                         test = "ks")
+#'
+#' # Compare with Shapiro-Wilk
+#' env_sw <- TransformData(env_data,
+#'                         data_type = "env",
+#'                         test = "shapiro")
+#'
+#' # Example 10: Complete workflow
+#'
+#' # 1. Transform environmental variables
+#' env_final <- PreData(TransformData(env_data,
+#'                                    data_type = "env",
+#'                                    scale = TRUE), NCols = 1)
+#'
+#' # Multivariate analysis
+#' pca_result <- prcomp(env_final, scale = FALSE)
+#' plot(pca_result)
+#' biplot(pca_result)
+#'
+#' # 2. Transform biological data
+#' bio_final <- PreData(TransformData(bio_data,
+#'                                    data_type = "bio",
+#'                                    trans = "r4"), NCols = 1)
+#'
+#' # Multivariate analysis
+#' pca_result2 <- prcomp(bio_final, scale = FALSE)
+#' plot(pca_result2)
+#' biplot(pca_result2)
+#'
+#' @importFrom stats shapiro.test ks.test sd
+#' @export
+TransformData <- function(DF, shape = "w", data_type = "env", version = "l",
+                          alpha = 0.05, min_sd = 0, test = "shapiro",
+                          trans = "r4", scale = FALSE, rel_type = "total") {
+
+  # Input validation
+  if (!is.data.frame(DF)) {
+    stop("DF must be a data.frame")
+  }
+
+  if (!shape %in% c("l", "w")) {
+    stop("shape must be 'l' or 'w'.\nIf your species are in columns, use shape = 'w'.\nIf your species are in the first column, use shape = 'l'")
+  }
+
+  if (!data_type %in% c("env", "bio", "percent", "pa", "scale", "rel")) {  # ← CORREGIDO
+    stop("data_type must be 'env', 'bio', 'percent', 'pa', 'scale', or 'rel'")
+  }
+
+  if (!version %in% c("l", "s")) {
+    stop("version must be 'l' or 's'")
+  }
+
+  if (!trans %in% c("r4", "l1", "sq", "Ch")) {
+    stop("trans must be 'r4' (fourth root), 'l1' (log+1), 'sq' (sqrt), or 'Ch' (chord)")
+  }
+
+  if (!rel_type %in% c("total", "max")) {  # ← AGREGAR ESTA LÍNEA
+    stop("rel_type must be 'total' or 'max'")
   }
 
   if (ncol(DF) < 2) {
-    stop("DF must have at least 2 columns (names + variables)")
+    stop("DF must have at least 2 columns (identifiers + variables)")
   }
 
-  # Set row names from first column and remove it
-  station_names <- as.character(DF[, 1])
-  DF_numeric <- DF[, -1, drop = FALSE]
-  rownames(DF_numeric) <- station_names
+  # Data preparation based on format
+  if (shape == "l") {
+    # Long format: Species/variables in first column, stations in other columns
+    Species <- DF[, 1]
+    DF_numeric <- as.data.frame(t(DF[, -1]))
+    colnames(DF_numeric) <- Species
+    rownames(DF_numeric) <- colnames(DF[, -1])
+    Stations <- rownames(DF_numeric)
+
+    # Store first column for version "l" output
+    first_col_name <- "Station"
+    first_col_values <- Stations
+
+  } else {
+    # Wide format: Stations in first column, species/variables in other columns
+    Stations <- DF[, 1]
+    DF_numeric <- DF[, -1, drop = FALSE]
+    Species <- colnames(DF_numeric)
+    rownames(DF_numeric) <- Stations
+
+    # Store first column for version "l" output
+    first_col_name <- colnames(DF)[1]
+    first_col_values <- Stations
+  }
 
   # Select only numeric columns
   numeric_cols <- sapply(DF_numeric, is.numeric)
@@ -241,53 +523,120 @@ TransformData <- function(DF, data_type = "env", alpha = 0.05, min_sd = 0, test 
   }
   DF_numeric <- DF_numeric[, numeric_cols, drop = FALSE]
 
-  # Special case: Presence-Absence
+  # Store original data for version "l" output
+  original_numeric <- DF_numeric
+
+  # ===============================================================
+  # SCALE ONLY (no transformation)
+  # ===============================================================
+  if (data_type == "scale") {
+    scaled_data <- apply_scale(DF_numeric)
+
+    transformation_log <- data.frame(
+      Variable = colnames(scaled_data),
+      Transformation = "scale (z-score)",
+      stringsAsFactors = FALSE
+    )
+
+    summary_stats <- data.frame(
+      Metric = c("Input variables", "Scaled variables"),
+      Count = c(ncol(DF_numeric), ncol(scaled_data))
+    )
+
+    if (version == "l") {
+      output <- data.frame(
+        temp_col = first_col_values,
+        scaled_data,
+        stringsAsFactors = FALSE
+      )
+      colnames(output)[1] <- first_col_name
+      rownames(output) <- NULL
+
+      attr(output, "transformation_report") <- transformation_log
+      attr(output, "summary") <- summary_stats
+      attr(output, "scaled") <- TRUE
+
+      cat("\n")
+      cat("========================================\n")
+      cat("       SCALING SUMMARY (Z-SCORE)        \n")
+      cat("========================================\n")
+      print(summary_stats)
+      cat("\n")
+
+      return(output)
+    } else {
+      return(list(
+        scaled_data = scaled_data,
+        transformation_report = transformation_log,
+        summary = summary_stats
+      ))
+    }
+  }
+
+  # ===============================================================
+  # PRESENCE-ABSENCE
+  # ===============================================================
   if (data_type == "pa") {
     pa_data <- apply_pa(DF_numeric)
 
     transformation_log <- data.frame(
       Variable = colnames(pa_data),
       Transformation = "presence-absence",
-      Initial_p = NA,
-      Final_p = NA,
-      Status = "Converted to PA",
       stringsAsFactors = FALSE
     )
 
     summary_stats <- data.frame(
-      Metric = c("Total variables", "Converted to presence-absence"),
-      Count = c(ncol(pa_data), ncol(pa_data))
+      Metric = c("Input variables", "Converted to PA"),
+      Count = c(ncol(DF_numeric), ncol(pa_data))
     )
 
-    return(list(
-      normal_data = pa_data,
-      non_normal_data = data.frame(matrix(ncol = 0, nrow = nrow(pa_data))),
-      transformation_report = transformation_log,
-      summary = summary_stats,
-      normal_vars = colnames(pa_data),
-      non_normal_vars = character(0)
-    ))
+    if (version == "l") {
+      output <- data.frame(
+        temp_col = first_col_values,
+        pa_data,
+        stringsAsFactors = FALSE
+      )
+      colnames(output)[1] <- first_col_name
+      rownames(output) <- NULL
+
+      attr(output, "transformation_report") <- transformation_log
+      attr(output, "summary") <- summary_stats
+
+      cat("\n")
+      cat("========================================\n")
+      cat("   TRANSFORMATION SUMMARY (PA)           \n")
+      cat("========================================\n")
+      print(summary_stats)
+      cat("\n")
+
+      return(output)
+    } else {
+      return(list(
+        pa_data = pa_data,
+        transformation_report = transformation_log,
+        summary = summary_stats
+      ))
+    }
   }
 
-  # Special case: Percentage/Proportion data
+  # ===============================================================
+  # PERCENTAGE/PROPORTION DATA
+  # ===============================================================
   if (data_type == "percent") {
-    # Check if data are percentages between 0 and 100 or proportions between 0 and 1
-    max_vals <- sapply(DF_numeric, max, na.rm = TRUE)
 
     # Convert percentages to proportions if needed
     DF_for_transform <- DF_numeric
     converted_vars <- character(0)
 
-    for (var in names(max_vals)) {
-      if (max_vals[var] > 1) {
-        # Assume percentages, convert to proportions
+    for (var in colnames(DF_numeric)) {
+      if (max(DF_numeric[[var]], na.rm = TRUE) > 1) {
         DF_for_transform[[var]] <- DF_numeric[[var]] / 100
         converted_vars <- c(converted_vars, var)
       }
     }
 
     if (length(converted_vars) > 0) {
-      message("Note: The following variables were detected as percentages [0,100] and converted to proportions [0,1]: ",
+      message("Note: Variables detected as percentages [0,100] converted to proportions [0,1]: ",
               paste(converted_vars, collapse = ", "))
     }
 
@@ -298,204 +647,376 @@ TransformData <- function(DF, data_type = "env", alpha = 0.05, min_sd = 0, test 
 
     # Apply arcsine-sqrt transformation
     arcsin_data <- apply_arcsin(DF_for_transform)
-    arcsin_results <- test_all_variables(arcsin_data, test)
 
-    normal_vars <- arcsin_results$normal_vars
-    non_normal_vars <- setdiff(colnames(arcsin_data), normal_vars)
+    # Apply scaling if requested
+    if (scale) {
+      arcsin_data <- apply_scale(arcsin_data)
+    }
+
+    trans_name <- if(scale) "arcsine-sqrt (scaled)" else "arcsine-sqrt"
 
     transformation_log <- data.frame(
       Variable = colnames(arcsin_data),
-      Transformation = "arcsine-sqrt",
-      Initial_p = NA,
-      Final_p = arcsin_results$p_values,
-      Status = ifelse(colnames(arcsin_data) %in% normal_vars, "Normal", "Non-normal"),
+      Transformation = trans_name,
       stringsAsFactors = FALSE
     )
 
-    transformation_log$Final_p <- round(transformation_log$Final_p, 4)
+    summary_stats <- data.frame(
+      Metric = c("Input variables", "Transformed variables"),
+      Count = c(ncol(DF_numeric), ncol(arcsin_data))
+    )
 
-    normal_data <- if (length(normal_vars) > 0) {
-      arcsin_data[, normal_vars, drop = FALSE]
+    if (version == "l") {
+      output <- data.frame(
+        temp_col = first_col_values,
+        arcsin_data,
+        stringsAsFactors = FALSE
+      )
+      colnames(output)[1] <- first_col_name
+      rownames(output) <- NULL
+
+      attr(output, "transformation_report") <- transformation_log
+      attr(output, "summary") <- summary_stats
+      attr(output, "scaled") <- scale
+
+      cat("\n")
+      cat("========================================\n")
+      cat("   TRANSFORMATION SUMMARY (PERCENT)     \n")
+      cat("========================================\n")
+      print(summary_stats)
+      cat("\nTransformation applied:", trans_name, "\n")
+      if (length(converted_vars) > 0) {
+        cat("Variables converted: ", paste(converted_vars, collapse = ", "), "\n")
+      }
+      cat("\n")
+
+      return(output)
     } else {
-      data.frame(matrix(ncol = 0, nrow = nrow(arcsin_data)))
+      return(list(
+        transformed_data = arcsin_data,
+        transformation_report = transformation_log,
+        summary = summary_stats
+      ))
+    }
+  }
+
+  # ===============================================================
+  # RELATIVIZATION
+  # ===============================================================
+  if (data_type == "rel") {
+
+    if (!rel_type %in% c("total", "max")) {
+      stop("rel_type must be 'total' or 'max'")
     }
 
-    non_normal_data <- if (length(non_normal_vars) > 0) {
-      DF_numeric[, non_normal_vars, drop = FALSE]
-    } else {
-      data.frame(matrix(ncol = 0, nrow = nrow(DF_numeric)))
-    }
+    # Apply relativization by row
+    rel_data <- as.data.frame(t(apply(DF_numeric, 1, function(x) {
+      if (rel_type == "total") {
+        if (sum(x, na.rm = TRUE) == 0) return(x)
+        x / sum(x, na.rm = TRUE)
+      } else {
+        if (max(x, na.rm = TRUE) == 0) return(x)
+        x / max(x, na.rm = TRUE)
+      }
+    })))
+
+    trans_name <- paste0("relativize_", rel_type)
+
+    transformation_log <- data.frame(
+      Variable = colnames(DF_numeric),
+      Transformation = trans_name,
+      stringsAsFactors = FALSE
+    )
 
     summary_stats <- data.frame(
-      Metric = c("Total variables", "Normalized by arcsine-sqrt", "Remaining non-normal"),
-      Count = c(ncol(arcsin_data), length(normal_vars), length(non_normal_vars))
+      Metric = c("Input variables", "Relativized variables"),
+      Count = c(ncol(DF_numeric), ncol(rel_data))
     )
 
-    return(list(
-      normal_data = normal_data,
-      non_normal_data = non_normal_data,
-      transformation_report = transformation_log,
-      summary = summary_stats,
-      normal_vars = normal_vars,
-      non_normal_vars = non_normal_vars
-    ))
-  }
+    if (version == "l") {
+      output <- data.frame(
+        temp_col = first_col_values,
+        rel_data,
+        stringsAsFactors = FALSE
+      )
+      colnames(output)[1] <- first_col_name
+      rownames(output) <- NULL
 
-  # For "env" and "bio" data types - full transformation workflow
+      attr(output, "transformation_report") <- transformation_log
+      attr(output, "summary") <- summary_stats
+      attr(output, "rel_type") <- rel_type
 
-  # Step 1: Filter by standard deviation
-  sds <- sapply(DF_numeric, sd, na.rm = TRUE)
-  keep_vars <- names(sds)[sds > min_sd]
+      cat("\n")
+      cat("========================================\n")
+      cat("     RELATIVIZATION SUMMARY             \n")
+      cat("========================================\n")
+      print(summary_stats)
+      cat("\nRelativization type:", rel_type, "\n\n")
 
-  if (length(keep_vars) == 0) {
-    stop("No variables with SD > min_sd")
-  }
-
-  DF_filtered <- DF_numeric[, keep_vars, drop = FALSE]
-  excluded_low_sd <- setdiff(names(DF_numeric), keep_vars)
-
-  # Initialize tracking
-  all_vars <- colnames(DF_filtered)
-  original_data <- DF_filtered
-  transformation_log <- data.frame(
-    Variable = all_vars,
-    Transformation = "none",
-    Initial_p = NA,
-    Final_p = NA,
-    Status = "pending",
-    stringsAsFactors = FALSE
-  )
-
-  # Containers for results
-  normal_dfs <- list()
-  current_non_normal <- DF_filtered
-
-  # Step 2: Initial normality test
-  initial_results <- test_all_variables(current_non_normal, test)
-
-  # Separate normal and non-normal
-  initially_normal <- initial_results$normal_vars
-  if (length(initially_normal) > 0) {
-    normal_dfs[["none"]] <- current_non_normal[, initially_normal, drop = FALSE]
-    transformation_log$Transformation[transformation_log$Variable %in% initially_normal] <- "none"
-    transformation_log$Initial_p[transformation_log$Variable %in% initially_normal] <-
-      initial_results$p_values[initially_normal]
-    transformation_log$Final_p[transformation_log$Variable %in% initially_normal] <-
-      initial_results$p_values[initially_normal]
-    transformation_log$Status[transformation_log$Variable %in% initially_normal] <- "Normal"
-
-    current_non_normal <- current_non_normal[, setdiff(colnames(current_non_normal), initially_normal), drop = FALSE]
-  }
-
-  # Record initial p-values
-  transformation_log$Initial_p[transformation_log$Variable %in% colnames(current_non_normal)] <-
-    initial_results$p_values[colnames(current_non_normal)]
-
-  # Define transformation sequence based on data type
-  if (data_type == "env") {
-    # Environmental: sqrt → log → fourth → chord → scale
-    transform_sequence <- list(
-      list(name = "sqrt", func = apply_sqrt),
-      list(name = "log", func = apply_log),
-      list(name = "fourth", func = apply_fourth),
-      list(name = "chord", func = apply_chord),
-      list(name = "z-score", func = apply_scale)
-    )
-  } else if (data_type == "bio") {
-    # Biological: sqrt → fourth → log → chord → scale
-    transform_sequence <- list(
-      list(name = "sqrt", func = apply_sqrt),
-      list(name = "fourth", func = apply_fourth),
-      list(name = "log", func = apply_log),
-      list(name = "chord", func = apply_chord),
-      list(name = "z-score", func = apply_scale)
-    )
-  }
-
-  # Apply transformations in sequence
-  for (transform in transform_sequence) {
-    if (ncol(current_non_normal) == 0) break
-
-    transformed_data <- transform$func(current_non_normal)
-    transform_results <- test_all_variables(transformed_data, test)
-
-    normal_vars <- transform_results$normal_vars[transform_results$p_values[transform_results$normal_vars] > alpha]
-
-    if (length(normal_vars) > 0) {
-      normal_dfs[[transform$name]] <- transformed_data[, normal_vars, drop = FALSE]
-      transformation_log$Transformation[transformation_log$Variable %in% normal_vars] <- transform$name
-      transformation_log$Final_p[transformation_log$Variable %in% normal_vars] <-
-        transform_results$p_values[normal_vars]
-      transformation_log$Status[transformation_log$Variable %in% normal_vars] <- "Normal"
-
-      current_non_normal <- current_non_normal[, setdiff(colnames(current_non_normal), normal_vars), drop = FALSE]
+      return(output)
+    } else {
+      return(list(
+        transformed_data = rel_data,
+        transformation_report = transformation_log,
+        summary = summary_stats
+      ))
     }
   }
 
-  # Mark remaining as non-normal
-  if (ncol(current_non_normal) > 0) {
-    remaining_vars <- colnames(current_non_normal)
-    transformation_log$Status[transformation_log$Variable %in% remaining_vars] <- "Non-normal"
-    final_test <- test_all_variables(current_non_normal, test)
-    transformation_log$Final_p[transformation_log$Variable %in% remaining_vars] <-
-      final_test$p_values[remaining_vars]
-  }
+  # ===============================================================
+  # BIOLOGICAL DATA
+  # ===============================================================
+  if (data_type == "bio") {
 
-  # Combine all normal data
-  if (length(normal_dfs) > 0) {
-    normal_data <- do.call(cbind, normal_dfs)
-  } else {
-    normal_data <- data.frame(matrix(ncol = 0, nrow = nrow(DF_filtered)))
-    rownames(normal_data) <- rownames(DF_filtered)
-  }
+    trans_func <- switch(trans,
+                         "r4" = apply_fourth,
+                         "l1" = apply_log,
+                         "sq" = apply_sqrt,
+                         "Ch" = apply_chord)
 
-  # Non-normal data (original values)
-  non_normal_vars <- transformation_log$Variable[transformation_log$Status == "Non-normal"]
-  if (length(non_normal_vars) > 0) {
-    non_normal_data <- original_data[, non_normal_vars, drop = FALSE]
-  } else {
-    non_normal_data <- data.frame(matrix(ncol = 0, nrow = nrow(DF_filtered)))
-    rownames(non_normal_data) <- rownames(DF_filtered)
-  }
+    trans_name <- switch(trans,
+                         "r4" = "fourth_root",
+                         "l1" = "log_p1",
+                         "sq" = "sqrt",
+                         "Ch" = "chord")
 
-  # Round p-values
-  transformation_log$Initial_p <- round(transformation_log$Initial_p, 4)
-  transformation_log$Final_p <- round(transformation_log$Final_p, 4)
+    transformed_data <- trans_func(DF_numeric)
 
-  # Sort by status
-  transformation_log <- transformation_log[order(transformation_log$Status, decreasing = TRUE), ]
-  rownames(transformation_log) <- NULL
+    if (scale) {
+      transformed_data <- apply_scale(transformed_data)
+      trans_name <- paste0(trans_name, " (scaled)")
+    }
 
-  # Create summary
-  transform_counts <- table(transformation_log$Transformation[transformation_log$Status == "Normal"])
-
-  summary_stats <- data.frame(
-    Metric = c("Total variables", "Excluded (low SD)", "Initially normal",
-               names(transform_counts),
-               "Remaining non-normal", "Total normalized"),
-    Count = c(
-      length(all_vars) + length(excluded_low_sd),
-      length(excluded_low_sd),
-      sum(transformation_log$Transformation == "none" & transformation_log$Status == "Normal"),
-      as.numeric(transform_counts),
-      sum(transformation_log$Status == "Non-normal"),
-      ncol(normal_data)
+    transformation_log <- data.frame(
+      Variable = colnames(DF_numeric),
+      Transformation = trans_name,
+      stringsAsFactors = FALSE
     )
-  )
 
-  # Return results
-  return(list(
-    normal_data = normal_data,
-    non_normal_data = non_normal_data,
-    transformation_report = transformation_log,
-    summary = summary_stats,
-    normal_vars = colnames(normal_data),
-    non_normal_vars = colnames(non_normal_data)
-  ))
+    summary_stats <- data.frame(
+      Metric = c("Input variables", "Transformed variables"),
+      Count = c(ncol(DF_numeric), ncol(transformed_data))
+    )
+
+    if (version == "l") {
+      output <- data.frame(
+        temp_col = first_col_values,
+        transformed_data,
+        stringsAsFactors = FALSE
+      )
+      colnames(output)[1] <- first_col_name
+      rownames(output) <- NULL
+
+      attr(output, "transformation_report") <- transformation_log
+      attr(output, "summary") <- summary_stats
+      attr(output, "scaled") <- scale
+
+      cat("\n")
+      cat("========================================\n")
+      cat("   TRANSFORMATION SUMMARY (BIO)         \n")
+      cat("========================================\n")
+      print(summary_stats)
+      cat("\nTransformation applied:", trans_name, "\n\n")
+
+      return(output)
+    } else {
+      return(list(
+        transformed_data = transformed_data,
+        transformation_report = transformation_log,
+        summary = summary_stats
+      ))
+    }
+  }
+
+  # ===============================================================
+  # ENVIRONMENTAL DATA
+  # ===============================================================
+  if (data_type == "env") {
+
+    # Step 1: Filter by standard deviation
+    sds <- sapply(DF_numeric, sd, na.rm = TRUE)
+    keep_vars <- names(sds)[sds > min_sd]
+
+    if (length(keep_vars) == 0) {
+      stop("No variables with SD > min_sd")
+    }
+
+    DF_filtered <- DF_numeric[, keep_vars, drop = FALSE]
+    excluded_low_sd <- setdiff(names(DF_numeric), keep_vars)
+
+    all_vars <- colnames(DF_filtered)
+    original_data <- DF_filtered
+
+    transformation_log <- data.frame(
+      Variable = all_vars,
+      Transformation = "none",
+      Initial_p = NA,
+      Final_p = NA,
+      Status = "pending",
+      stringsAsFactors = FALSE
+    )
+
+    normal_dfs <- list()
+    current_non_normal <- DF_filtered
+
+    # Step 2: Initial normality test
+    initial_results <- test_all_variables(current_non_normal, test)
+
+    initially_normal <- initial_results$normal_vars
+    if (length(initially_normal) > 0) {
+      normal_dfs[["none"]] <- current_non_normal[, initially_normal, drop = FALSE]
+      transformation_log$Transformation[transformation_log$Variable %in% initially_normal] <- "none"
+      transformation_log$Initial_p[transformation_log$Variable %in% initially_normal] <-
+        initial_results$p_values[initially_normal]
+      transformation_log$Final_p[transformation_log$Variable %in% initially_normal] <-
+        initial_results$p_values[initially_normal]
+      transformation_log$Status[transformation_log$Variable %in% initially_normal] <- "Normal"
+
+      current_non_normal <- current_non_normal[, setdiff(colnames(current_non_normal), initially_normal), drop = FALSE]
+    }
+
+    if (ncol(current_non_normal) > 0) {
+      transformation_log$Initial_p[transformation_log$Variable %in% colnames(current_non_normal)] <-
+        initial_results$p_values[colnames(current_non_normal)]
+    }
+
+    # Transformation sequence
+    transform_sequence <- list(
+      list(name = "sqrt", func = apply_sqrt),
+      list(name = "log", func = apply_log),
+      list(name = "fourth", func = apply_fourth)
+    )
+
+    for (transform in transform_sequence) {
+      if (ncol(current_non_normal) == 0) break
+
+      transformed_data <- transform$func(current_non_normal)
+      transform_results <- test_all_variables(transformed_data, test)
+
+      normal_vars <- transform_results$normal_vars[transform_results$p_values[transform_results$normal_vars] > alpha]
+
+      if (length(normal_vars) > 0) {
+        normal_dfs[[transform$name]] <- transformed_data[, normal_vars, drop = FALSE]
+        transformation_log$Transformation[transformation_log$Variable %in% normal_vars] <- transform$name
+        transformation_log$Final_p[transformation_log$Variable %in% normal_vars] <-
+          transform_results$p_values[normal_vars]
+        transformation_log$Status[transformation_log$Variable %in% normal_vars] <- "Normal"
+
+        current_non_normal <- current_non_normal[, setdiff(colnames(current_non_normal), normal_vars), drop = FALSE]
+      }
+    }
+
+    non_normal_vars <- character(0)
+    if (ncol(current_non_normal) > 0) {
+      remaining_vars <- colnames(current_non_normal)
+      transformation_log$Status[transformation_log$Variable %in% remaining_vars] <- "Non-normal"
+      final_test <- test_all_variables(current_non_normal, test)
+      transformation_log$Final_p[transformation_log$Variable %in% remaining_vars] <-
+        final_test$p_values[remaining_vars]
+      non_normal_vars <- remaining_vars
+    }
+
+    # Combine normal data
+    if (length(normal_dfs) > 0) {
+      normal_data <- do.call(cbind, normal_dfs)
+    } else {
+      normal_data <- data.frame(matrix(ncol = 0, nrow = nrow(DF_filtered)))
+      rownames(normal_data) <- rownames(DF_filtered)
+    }
+
+    # Non-normal data (original values)
+    if (length(non_normal_vars) > 0) {
+      non_normal_data <- original_data[, non_normal_vars, drop = FALSE]
+    } else {
+      non_normal_data <- data.frame(matrix(ncol = 0, nrow = nrow(DF_filtered)))
+      rownames(non_normal_data) <- rownames(DF_filtered)
+    }
+
+    # Combine all data
+    if (ncol(normal_data) > 0 && ncol(non_normal_data) > 0) {
+      combined_data <- cbind(normal_data, non_normal_data)
+    } else if (ncol(normal_data) > 0) {
+      combined_data <- normal_data
+    } else if (ncol(non_normal_data) > 0) {
+      combined_data <- non_normal_data
+    } else {
+      combined_data <- data.frame(row.names = rownames(DF_filtered))
+    }
+
+    # Apply scaling if requested
+    if (scale) {
+      combined_data <- apply_scale(combined_data)
+    }
+
+    transformation_log$Initial_p <- round(transformation_log$Initial_p, 4)
+    transformation_log$Final_p <- round(transformation_log$Final_p, 4)
+    transformation_log <- transformation_log[order(transformation_log$Status, decreasing = TRUE), ]
+    rownames(transformation_log) <- NULL
+
+    transform_counts <- table(transformation_log$Transformation[transformation_log$Status == "Normal"])
+
+    summary_stats <- data.frame(
+      Metric = c("Input variables",
+                 "Excluded (low SD)",
+                 "Initially normal",
+                 names(transform_counts),
+                 "Remaining non-normal",
+                 "Total normalized",
+                 if(scale) "Scaled (all variables)" else NULL),
+      Count = c(
+        length(all_vars) + length(excluded_low_sd),
+        length(excluded_low_sd),
+        sum(transformation_log$Transformation == "none" & transformation_log$Status == "Normal"),
+        as.numeric(transform_counts),
+        length(non_normal_vars),
+        ncol(normal_data),
+        if(scale) ncol(combined_data) else NULL
+      )
+    )
+
+    if (version == "l") {
+      output <- data.frame(
+        temp_col = first_col_values,
+        combined_data,
+        stringsAsFactors = FALSE
+      )
+      colnames(output)[1] <- first_col_name
+      rownames(output) <- NULL
+
+      attr(output, "transformation_report") <- transformation_log
+      attr(output, "summary") <- summary_stats
+      attr(output, "normal_vars") <- colnames(normal_data)
+      attr(output, "non_normal_vars") <- non_normal_vars
+      attr(output, "scaled") <- scale
+
+      cat("\n")
+      cat("========================================\n")
+      cat("     TRANSFORMATION SUMMARY (ENV)       \n")
+      cat("========================================\n")
+      print(summary_stats)
+      cat("\nTransformation Report:\n")
+      print(transformation_log)
+      if (scale) {
+        cat("\nNote: All variables (normal and non-normal) were scaled (z-score).\n")
+      }
+      cat("\n")
+
+      return(output)
+    } else {
+      return(list(
+        normal_data = if(scale) combined_data[, colnames(normal_data), drop = FALSE] else normal_data,
+        non_normal_data = if(scale) combined_data[, non_normal_vars, drop = FALSE] else non_normal_data,
+        transformation_report = transformation_log,
+        summary = summary_stats,
+        normal_vars = colnames(normal_data),
+        non_normal_vars = non_normal_vars
+      ))
+    }
+  }
 }
 
-# Helper functions (same as before)
 
+# Helper functions (unchanged)
 test_all_variables <- function(DF, test) {
   p_values <- sapply(colnames(DF), function(var) {
     x <- DF[[var]]
@@ -546,117 +1067,6 @@ apply_chord <- function(DF) {
 
 apply_scale <- function(DF) {
   as.data.frame(scale(DF))
-}
-
-
-#' Prepare Data for Analysis
-#'
-#' Prepares community data by removing columns, setting row names, and optionally
-#' transposing the data frame. Useful for cleaning and reformatting data before
-#' diversity analysis.
-#'
-#' @param DF A data.frame containing community data.
-#' @param ReCols Integer. Number of columns to remove from the beginning of the
-#'   data frame (default = 0). Useful when the first column(s) contain metadata
-#'   that should be excluded.
-#' @param NCols Integer. Column number to use as row names (default = 1).
-#'   This column will be converted to row names and then removed from the data.
-#' @param transpose Logical. Should the data frame be transposed after processing?
-#'   (default = FALSE). Set to TRUE to switch rows and columns (e.g., convert
-#'   species-in-rows to species-in-columns format).
-#'
-#' @return A data.frame with:
-#'   \itemize{
-#'     \item Row names set from the specified column
-#'     \item Specified columns removed
-#'     \item Optionally transposed
-#'   }
-#'
-#' @details
-#' This function streamlines common data preparation tasks:
-#'
-#' \strong{Workflow:}
-#' \enumerate{
-#'   \item Remove first \code{ReCols} columns (if ReCols > 0)
-#'   \item Set row names from column \code{NCols}
-#'   \item Remove the names column
-#'   \item Transpose if \code{transpose = TRUE}
-#' }
-#'
-#' \strong{Common use cases:}
-#' \itemize{
-#'   \item Converting Excel/CSV imports to analysis-ready format
-#'   \item Handling data with multiple ID columns
-#'   \item Switching between wide and long formats
-#'   \item Preparing data for diversity functions
-#' }
-#'
-#' @examples
-#' # Example 1: Simple case - set row names from column 1
-#' data_raw <- data.frame(
-#'   Station = c("St1", "St2", "St3"),
-#'   Capitella = c(45, 12, 3),
-#'   Owenia = c(23, 18, 45),
-#'   Nephtys = c(12, 34, 23)
-#' )
-#' PreData(data_raw, NCols = 1, transpose = FALSE)
-#'
-#' # Example 2: Remove first column, use second as names, and transpose
-#' data_raw2 <- data.frame(
-#'   ID = 1:3,
-#'   Station = c("St1", "St2", "St3"),
-#'   Capitella = c(45, 12, 3),
-#'   Owenia = c(23, 18, 45)
-#' )
-#' PreData(data_raw2, ReCols = 1, NCols = 1, transpose = TRUE)
-#'
-#' # Example 3: Transpose without removing columns
-#' data_raw3 <- data.frame(
-#'   Species = c("Capitella", "Owenia", "Nephtys"),
-#'   St1 = c(45, 23, 12),
-#'   St2 = c(12, 18, 34),
-#'   St3 = c(3, 45, 23)
-#' )
-#' PreData(data_raw3, NCols = 1, transpose = TRUE)
-#'
-#' @importFrom stats shapiro.test ks.test sd
-#' @export
-PreData <- function(DF, ReCols = 0, NCols = 1, transpose = FALSE) {
-
-  # Input validation
-  if (!is.data.frame(DF)) {
-    stop("DF must be a data.frame")
-  }
-
-  if (!is.numeric(ReCols) || ReCols < 0 || ReCols >= ncol(DF)) {
-    stop("ReCols must be a non-negative integer less than the number of columns")
-  }
-
-  if (!is.numeric(NCols) || NCols < 1 || NCols > ncol(DF)) {
-    stop("NCols must be a positive integer within the number of columns")
-  }
-
-  if (!is.logical(transpose)) {
-    stop("transpose must be TRUE or FALSE")
-  }
-
-  # Remove initial columns if specified
-  if (ReCols > 0) {
-    DF <- DF[, -(1:ReCols), drop = FALSE]
-  }
-
-  # Set row names from specified column
-  rownames(DF) <- DF[, NCols]
-
-  # Remove the names column
-  DF <- DF[, -NCols, drop = FALSE]
-
-  # Transpose if requested
-  if (transpose) {
-    DF <- as.data.frame(t(DF))
-  }
-
-  return(DF)
 }
 
 

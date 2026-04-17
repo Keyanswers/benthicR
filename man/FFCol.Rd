@@ -38,9 +38,9 @@ wsw (water swimming), crw (crawling), bur (burrowing), int (interstitial),
 tat (temporarily attached), pat (permanently attached)
 \item \strong{Respiration (Res):} teg (tegument), gil (gill), pls (plastron),
 spi (spiracle), ves (hydrostatic vesicle), sur (surface excursion)
-\item \strong{Body size (MPS):} L25 (≤0.25cm), 25To5 (>0.25-0.5cm), 5To1 (>0.5-1cm),
+\item \strong{Body size (MPS):} L25 (\eqn{\le}0.25cm), 25To5 (>0.25-0.5cm), 5To1 (>0.5-1cm),
 1To2 (>1-2cm), 2To4 (>2-4cm), 4To8 (>4-8cm), H8 (>8cm)
-\item \strong{Life cycle (LiCy):} <1y (≤1 year), >1y (>1 year)
+\item \strong{Life cycle (LiCy):} <1y (\eqn{\le}1 year), >1y (>1 year)
 \item \strong{Voltinism (Vol):} <1 (semivoltine), 1 (monovoltine), >1 (polyvoltine)
 }
 
