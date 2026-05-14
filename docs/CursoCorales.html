@@ -1577,6 +1577,14 @@ Arrecifes de Coral</h1>
 
 
 <hr />
+<blockquote>
+<p>💻 <strong>Código fuente y repositorio:</strong><br />
+<a href="https://github.com/Keyanswers" class="uri">https://github.com/Keyanswers</a></p>
+<p>📦 <strong>Documentación del paquete
+<code>benthicR</code>:</strong><br />
+<a href="https://keyanswers.github.io/benthicR/" class="uri">https://keyanswers.github.io/benthicR/</a></p>
+</blockquote>
+<hr />
 <div id="descripción-general" class="section level1" number="1">
 <h1><span class="header-section-number">1</span> Descripción
 General</h1>
@@ -1621,7 +1629,7 @@ Paquetes</h1>
 <span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Paquete para personalizar dendrogramas</span></span>
 <span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="fu">require</span>(dendextend)</span>
 <span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Cargo paquete que permite cálculo de momentos estadísticos </span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Paquete para cálculo de momentos estadísticos</span></span>
 <span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="fu">require</span>(moments)</span></code></pre></div>
 <hr />
 </div>
@@ -1629,13 +1637,14 @@ Paquetes</h1>
 <h1><span class="header-section-number">3</span> Carga y Exploración de
 Datos</h1>
 <blockquote>
-<p><strong>Nota:</strong> Haz clic derecho en el archivo
-<code>CursoCorales.xlsx</code>, copia la ruta (<em>path</em>) y pégala
-dentro de las comillas en la función <code>read_excel()</code>.</p>
+<p><strong>Nota:</strong> Los datos están disponibles dentro del paquete
+<code>benthicR</code> en <code>inst/extdata/</code>. Se acceden con
+<code>system.file()</code> para garantizar la reproducibilidad en
+cualquier computadora.</p>
 </blockquote>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Cargar datos de coberturas simulados</span></span>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Cargar datos de coberturas simulados desde el paquete benthicR</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Formato &quot;wide&quot;: especies en columnas, sitios en filas</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>path <span class="ot">=</span> <span class="fu">file.path</span>(<span class="st">&quot;CursoCorales.xlsx&quot;</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>path <span class="ot">&lt;-</span> <span class="fu">system.file</span>(<span class="st">&quot;extdata&quot;</span>, <span class="st">&quot;CursoCorales.xlsx&quot;</span>, <span class="at">package =</span> <span class="st">&quot;benthicR&quot;</span>)</span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>Data <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="fu">read_excel</span>(path, <span class="dv">1</span>))</span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualizar primeras filas y dimensiones</span></span>
@@ -1763,21 +1772,21 @@ Locales</h2>
 ## 14      T2E 34        4   4 1.250771 1.386294 0.9022405 0.3131488 0.08667459
 ## 15      T3E 35        4   4 1.137141 1.386294 0.8202741 0.3632653 0.12532166
 ##    pLCBD adpLCBD
-## 1  0.248   1.000
-## 2  0.394   1.000
-## 3  0.158   1.000
-## 4  0.948   1.000
-## 5  0.749   1.000
-## 6  0.813   1.000
-## 7  0.194   1.000
-## 8  0.395   1.000
-## 9  0.783   1.000
-## 10 0.790   1.000
-## 11 0.835   1.000
-## 12 0.842   1.000
-## 13 0.118   1.000
-## 14 0.271   1.000
-## 15 0.053   0.795</code></pre>
+## 1  0.256    1.00
+## 2  0.374    1.00
+## 3  0.167    1.00
+## 4  0.936    1.00
+## 5  0.714    1.00
+## 6  0.795    1.00
+## 7  0.192    1.00
+## 8  0.413    1.00
+## 9  0.781    1.00
+## 10 0.773    1.00
+## 11 0.799    1.00
+## 12 0.851    1.00
+## 13 0.111    1.00
+## 14 0.306    1.00
+## 15 0.048    0.72</code></pre>
 </div>
 <div id="evaluación-de-supuestos" class="section level2" number="4.2">
 <h2><span class="header-section-number">4.2</span> Evaluación de
@@ -1792,8 +1801,8 @@ Supuestos</h2>
 ## 5          J 0.882 0.051    Normal
 ## 6  Dominance 0.942 0.406    Normal
 ## 7       LCBD 0.916 0.169    Normal
-## 8        Esn 0.870 0.034 Transform
-## 9      pLCBD 0.865 0.029 Transform
+## 8      pLCBD 0.882 0.052    Normal
+## 9        Esn 0.870 0.034 Transform
 ## 10   adpLCBD 0.284 0.000 Transform</code></pre>
 <div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Homogeneidad de varianza por sitio (usando réplicas)</span></span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bartlett.test</span>(Index<span class="sc">$</span>Shannon <span class="sc">~</span> Data<span class="sc">$</span>Sitios)  <span class="co"># Varianza homogénea</span></span></code></pre></div>
@@ -2135,12 +2144,13 @@ número en <code>read_excel</code>).</li>
 <li>Visualizar la tabla.</li>
 <li>Seleccionar las columnas y calcular el índice.</li>
 </ol>
-<div class="sourceCode" id="cb53"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Cargar datos de rugosidad desde la hoja 2 (ajustar según corresponda)</span></span>
-<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a>DataRug <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="fu">read_excel</span>(<span class="st">&quot;~/CursoCorales.xlsx&quot;</span>, <span class="dv">2</span>))</span>
-<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(DataRug)</span>
-<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Calcular índice de rugosidad</span></span>
-<span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a><span class="co"># (ver funciones en https://keyanswers.github.io/benthicR/)</span></span></code></pre></div>
+<div class="sourceCode" id="cb53"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Cargar datos de rugosidad desde la hoja 2 del paquete benthicR</span></span>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a>path <span class="ot">&lt;-</span> <span class="fu">system.file</span>(<span class="st">&quot;extdata&quot;</span>, <span class="st">&quot;CursoCorales.xlsx&quot;</span>, <span class="at">package =</span> <span class="st">&quot;benthicR&quot;</span>)</span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a>DataRug <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="fu">read_excel</span>(path, <span class="dv">2</span>))</span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(DataRug)</span>
+<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Calcular índice de rugosidad</span></span>
+<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a><span class="co"># (ver funciones en https://keyanswers.github.io/benthicR/)</span></span></code></pre></div>
 <hr />
 </div>
 </div>
@@ -2148,11 +2158,10 @@ número en <code>read_excel</code>).</li>
 <h1><span class="header-section-number">8</span> Referencias y
 Contacto</h1>
 <ul>
-<li>Documentación de <code>benthicR</code>: <a href="https://keyanswers.github.io/benthicR/" class="uri">https://keyanswers.github.io/benthicR/</a><br />
-</li>
+<li>Documentación de <code>benthicR</code>: <a href="https://keyanswers.github.io/benthicR/" class="uri">https://keyanswers.github.io/benthicR/</a></li>
+<li>Repositorio GitHub: <a href="https://github.com/Keyanswers" class="uri">https://github.com/Keyanswers</a></li>
 <li>ZAR, J. H. (2009). <em>Biostatistical Analysis</em> (5th ed.).
-Prentice Hall.<br />
-</li>
+Prentice Hall.</li>
 <li>Contacto: <a href="mailto:juan.rubio@ecosur.mx" class="email">juan.rubio@ecosur.mx</a></li>
 </ul>
 <hr />
